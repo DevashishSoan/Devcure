@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  GitPullRequest,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -66,6 +67,9 @@ export default function RunsTable({ runs }: { runs: any[] }) {
                 <th className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   MTTR
                 </th>
+                <th className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
+                  PR
+                </th>
                 <th className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   Errors
                 </th>
@@ -107,6 +111,22 @@ export default function RunsTable({ runs }: { runs: any[] }) {
                     <span className="text-sm font-medium text-slate-400 font-mono">
                       {formatMTTR(run.mttr_seconds)}
                     </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    {run.pr_url ? (
+                      <a
+                        href={run.pr_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                        title="View Pull Request"
+                      >
+                        <GitPullRequest size={14} />
+                      </a>
+                    ) : (
+                      <span className="text-slate-600">—</span>
+                    )}
                   </td>
                   <td className="p-4">
                     <div className="flex gap-1 flex-wrap">
