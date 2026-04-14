@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS runs (
     setup_time_seconds FLOAT,
     iterations_used INTEGER DEFAULT 0,
     regressions_found JSONB DEFAULT '[]'::jsonb,
+    pr_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

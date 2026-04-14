@@ -61,19 +61,22 @@ async def run_autonomous_qa(run_id: str, repo: str, branch: str, supabase: Clien
             "run_id": run_id,
             "sandbox_id": sandbox["id"],
             "repo_path": sandbox["path"],
+            "repo_full_name": repo,        # e.g. "DevashishSoan/Devcure"
+            "branch": branch,              # e.g. "test/autonomous-repair"
             "files": [],
             "failures": [],
             "baseline_failures": set(),
             "target_test_names": set(),
             "diagnosis": None,
             "repair_diff": None,
+            "pr_url": None,
             "iteration": 0,
             "max_iterations": 5,
             "status": "starting",
             "target_file": None,
             "run_start_time": run_start_time,
             "setup_time_seconds": setup_time_seconds,
-            "agent_start_time": time.time(), # Agent starts now
+            "agent_start_time": time.time(),
             "trajectory": [],
             "framework_detected": None
         }
@@ -83,11 +86,17 @@ async def run_autonomous_qa(run_id: str, repo: str, branch: str, supabase: Clien
         # 4. Final update (Agent completion - MTTR will be updated in verification_node Option A)
         # But we ensure status and iterations are synced here too.
         if supabase:
-            supabase.table("runs").update({
-                "status": final_state["status"],
-                "iterations_used": final_state["iteration"],
-                "updated_at": "now()"
-            }).eq("id", run_id).execute()
+            try:
+                update_payload = {
+                    "status": final_state["status"],
+                    "iterations_used": final_state["iteration"],
+                    "updated_at": "now()"
+                }
+                if final_state.get("pr_url"):
+                    update_payload["pr_url"] = final_state["pr_url"]
+                supabase.table("runs").update(update_payload).eq("id", run_id).execute()
+            except Exception as e:
+                print(f"Warning: Final status sync failed: {e}")
         
     except Exception as e:
         print(f"Error in autonomous run {run_id}: {e}")

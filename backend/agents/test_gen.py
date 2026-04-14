@@ -6,6 +6,7 @@ from core.config import settings
 from core.database import get_supabase
 from core.ai import call_gemini
 from core.safety import validate_patch_safety, parse_agent_response
+from core.github_client import open_fix_pr
 import httpx
 import re
 import json
@@ -16,12 +17,15 @@ class AgentState(TypedDict):
     run_id: str
     sandbox_id: str
     repo_path: str
+    repo_full_name: str   # e.g. "DevashishSoan/Devcure"
+    branch: str           # base branch the push came from
     files: List[str]
     failures: List[str]
     baseline_failures: Set[str]
     target_test_names: Set[str]
     diagnosis: Optional[str]
     repair_diff: Optional[str]
+    pr_url: Optional[str]
     iteration: int
     max_iterations: int
     status: str
@@ -161,7 +165,7 @@ def persist_event(state: AgentState, status: str, log: Optional[str] = None, dat
     
     # Handle optional telemetry data that might be in 'data'
     if data:
-        for field in ["regressions_found", "mttr_seconds", "agent_time_seconds", "iterations_used"]:
+        for field in ["regressions_found", "mttr_seconds", "agent_time_seconds", "iterations_used", "pr_url"]:
             if field in data:
                 payload[field] = data[field]
     
@@ -300,16 +304,36 @@ async def verification_node(state: AgentState):
         now = time.time()
         mttr = round(now - state["run_start_time"], 2)
         agent_time = round(now - state["agent_start_time"], 2)
-        
-        new_state = {"status": "completed", "failures": [truncated_output]}
+
+        # --- PR Automation ---
+        pr_url = None
+        if state.get("target_file") and state.get("repair_diff"):
+            try:
+                fixed_content = sandbox_manager.read_file(state["sandbox_id"], state["target_file"])
+                pr_url = await open_fix_pr(
+                    repo=state.get("repo_full_name", ""),
+                    base_branch=state.get("branch", "main"),
+                    run_id=state["run_id"],
+                    fixed_file_path=state["target_file"],
+                    fixed_content=fixed_content,
+                    diagnosis=state.get("diagnosis", "No diagnosis available."),
+                    repair_diff=state["repair_diff"],
+                )
+                print(f"[{state['run_id']}] PR created: {pr_url}")
+            except Exception as e:
+                print(f"[{state['run_id']}] PR creation failed (non-fatal): {e}")
+        # --- End PR Automation ---
+
+        new_state = {"status": "completed", "failures": [truncated_output], "pr_url": pr_url}
         merged = {**state, **new_state}
-        
+
         persist_event(merged, "completed", log="Verification SUCCESS: All target tests passed!", data={
             "mttr_seconds": mttr,
             "agent_time_seconds": agent_time,
-            "iterations_used": state["iteration"]
+            "iterations_used": state["iteration"],
+            "pr_url": pr_url,
         })
-            
+
         return new_state
     
     elif state["iteration"] >= state["max_iterations"]:
