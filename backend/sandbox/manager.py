@@ -26,11 +26,12 @@ class SandboxManager:
         
         self.sandboxes: Dict[str, Dict] = {} # sandbox_id -> metadata
         
-        try:
-            self.client = docker.from_env()
-        except Exception as e:
-            print(f"Warning: Docker not available, falling back to mock mode. Error: {e}")
-            self.client = None
+        self.client = None
+        if docker is not None:
+            try:
+                self.client = docker.from_env()
+            except Exception as e:
+                print(f"Warning: Docker not available, falling back to mock mode. Error: {e}")
 
     def create_sandbox(self, repo_url: Optional[str] = None, token: Optional[str] = None) -> Dict:
         """
