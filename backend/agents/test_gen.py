@@ -179,8 +179,9 @@ async def baseline_node(state: AgentState):
     Runs tests on unmodified code to capture pre-existing failures.
     """
     print(f"[{state['run_id']}] Capturing baseline failures...")
-    
-    framework = detect_test_framework(state['sandbox_id'])
+
+    sandbox_path = sandbox_manager.get_path(state['sandbox_id'])
+    framework = detect_test_framework(sandbox_path)
     command = FRAMEWORK_COMMANDS.get(framework, "pytest -v")
     
     output = sandbox_manager.run_command(state['sandbox_id'], command)
@@ -277,7 +278,8 @@ async def verification_node(state: AgentState):
     """
     print(f"[{state['run_id']}] Verifying fix with full test suite...")
     
-    framework = state.get("framework_detected") or detect_test_framework(state['sandbox_id'])
+    sandbox_path = sandbox_manager.get_path(state['sandbox_id'])
+    framework = state.get("framework_detected") or detect_test_framework(sandbox_path)
     command = FRAMEWORK_COMMANDS.get(framework, "pytest -v")
     
     output = sandbox_manager.run_command(state['sandbox_id'], command)

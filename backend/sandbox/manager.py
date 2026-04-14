@@ -54,6 +54,13 @@ class SandboxManager:
         self.sandboxes[sandbox_id] = metadata
         return metadata
 
+    def get_path(self, sandbox_id: str) -> str:
+        """Resolves a sandbox UUID to its absolute disk path."""
+        if sandbox_id in self.sandboxes:
+            return self.sandboxes[sandbox_id]["path"]
+        # Fallback: reconstruct path from base_path + id (e.g. after a restart)
+        return os.path.abspath(os.path.join(self.base_path, sandbox_id))
+
     def clone_repo(self, path: str, repo_url: str, token: Optional[str] = None):
         """Clones a repository into the specified path."""
         try:
