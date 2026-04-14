@@ -1,7 +1,10 @@
 import os
 import shutil
 import uuid
-import docker
+try:
+    import docker
+except ImportError:
+    docker = None
 import time
 import subprocess
 import requests
