@@ -125,13 +125,16 @@ async def github_webhook(
         
         # 1. Create run entry in Supabase
         if supabase:
-            supabase.table("runs").insert({
-                "id": run_id,
-                "repo": repo_name,
-                "branch": branch,
-                "status": "queued",
-                "run_type": "Autonomous Fix"
-            }).execute()
+            try:
+                supabase.table("runs").insert({
+                    "id": run_id,
+                    "repo": repo_name,
+                    "branch": branch,
+                    "status": "queued",
+                    "run_type": "Autonomous Fix"
+                }).execute()
+            except Exception as e:
+                print(f"Warning: Failed to create run entry in Supabase: {e}")
 
         # 2. Queue the background task
         background_tasks.add_task(run_autonomous_qa, run_id, repo_name, branch, supabase)

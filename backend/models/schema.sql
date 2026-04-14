@@ -5,13 +5,13 @@ CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY,
     repo TEXT NOT NULL,
     branch TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'queued', -- queued, running, completed, failed, escalated
+    status TEXT NOT NULL DEFAULT 'queued',
     run_type TEXT NOT NULL DEFAULT 'Autonomous Fix',
     mttr_seconds FLOAT,
-    error_classes JSONB DEFAULT '[]'::jsonb,
-    iterations INTEGER DEFAULT 0,
-    max_iterations INTEGER DEFAULT 5,
-    logs TEXT,
+    agent_time_seconds FLOAT,
+    setup_time_seconds FLOAT,
+    iterations_used INTEGER DEFAULT 0,
+    regressions_found JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
