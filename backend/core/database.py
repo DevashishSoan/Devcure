@@ -12,10 +12,16 @@ except ImportError:
 def get_supabase() -> Optional[Client]:
     """
     Initializes and returns a Supabase client.
-    Requires SUPABASE_URL and SUPABASE_KEY in settings.
+    Returns None (gracefully) if keys are missing or the client fails to initialize.
     """
     if not create_client or not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
-        # Fallback for development if keys are missing or package not installed
+        print("Warning: Supabase credentials missing — running without persistence.")
         return None
-        
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
+    try:
+        client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+        print("Supabase client initialized successfully.")
+        return client
+    except Exception as e:
+        print(f"Warning: Supabase client failed to initialize: {e}")
+        return None
