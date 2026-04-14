@@ -1,0 +1,38 @@
+services:
+  # Backend FastAPI Service
+  - type: web
+    name: devcure-backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.1
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SANDBOX_TYPE
+        value: docker
+
+  # Frontend Next.js Service
+  - type: web
+    name: devcure-frontend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    staticPublishDir: frontend/out  # Only if using static export, otherwise omit
+    envVars:
+      - key: NODE_VERSION
+        value: 20.x
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          name: devcure-backend
+          type: web
+          property: host
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
