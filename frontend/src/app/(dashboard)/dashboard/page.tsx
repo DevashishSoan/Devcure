@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [selectedRun, setSelectedRun] = useState<any | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => { 
     setMounted(true);
@@ -165,7 +166,19 @@ export default function Dashboard() {
             onClose={() => setSelectedRun(null)} 
           />
         )}
-        <AddRepoModal />
+        <AddRepoModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onAdd={async (config) => {
+             // We can use the runs collection or repo service directly here 
+             // but for simplicity we'll just refer user to repos page or 
+             // add a simple wrapper if needed.
+             // Actually, I'll just use the api directly as in ReposPage.
+             const { createRepo } = await import("@/lib/api");
+             await createRepo({ ...config, auto_repair: true });
+             setIsModalOpen(false);
+          }}
+        />
       </main>
   );
 }

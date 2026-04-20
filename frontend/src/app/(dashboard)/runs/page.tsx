@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { fetchRuns } from "@/lib/api";
+import { fetchRuns, subscribeToAllRuns } from "@/lib/api";
 import RunsTable from "@/components/RunsTable";
 import RunDetailModal from "@/components/RunDetailModal";
 

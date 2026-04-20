@@ -21,6 +21,7 @@ export default function OnboardingPage() {
   const { steps, allComplete, loading } = useOnboardingState();
   const [activeStep, setActiveStep] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -64,7 +65,7 @@ export default function OnboardingPage() {
       icon: PlusCircle,
       completed: steps.repo,
       action: "Connect Repository",
-      onClick: () => document.getElementById("add-repo-modal-trigger")?.click()
+      onClick: () => setIsModalOpen(true)
     },
     {
       id: "run",
@@ -153,7 +154,15 @@ export default function OnboardingPage() {
           </div>
         )}
       </div>
-      <AddRepoModal />
+      <AddRepoModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAdd={async (config) => {
+           const { createRepo } = await import("@/lib/api");
+           await createRepo({ ...config, auto_repair: true });
+           setIsModalOpen(false);
+        }}
+      />
     </div>
   );
 }

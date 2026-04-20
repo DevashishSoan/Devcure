@@ -43,7 +43,7 @@ export default function AddRepoModal({ isOpen, onClose, onAdd }: AddRepoModalPro
         <div className="flex items-center justify-between mb-8 relative">
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-2xl bg-acid/10 text-acid border border-acid/10">
-              <Github size={24} />
+              <Github className="w-6 h-6" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Connect Repository</h2>
