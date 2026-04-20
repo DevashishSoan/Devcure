@@ -8,14 +8,32 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.1
+      - key: PROJECT_NAME
+        value: DevCure Autonomous QA Platform
+      - key: API_V1_STR
+        value: /api/v1
+      - key: SANDBOX_TYPE
+        value: docker
+      - key: SANDBOX_BASE_PATH
+        value: ./sandboxes
       - key: GEMINI_API_KEY
+        sync: false
+      - key: MINIMAX_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
         sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
         sync: false
-      - key: SANDBOX_TYPE
-        value: docker
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: VERCEL_URL
+        sync: false
 
   # Frontend Next.js Service
   - type: web

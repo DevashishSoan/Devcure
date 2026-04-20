@@ -11,9 +11,8 @@ class ValidationResult:
 def extract_filenames_from_diff(diff_str: str) -> List[str]:
     """Extracts filenames from a unified diff string."""
     filenames = []
-    # Look for lines starting with '+++ b/' or '--- a/'
-    # Standard unified diff format uses these markers
-    matches = re.findall(r'^\+\+\+ b/(.*)$', diff_str, re.MULTILINE)
+    # Use re.MULTILINE and handle potential variations like +++ a/ or +++ b/
+    matches = re.findall(r'^\+\+\+ [ab]/(.*)$', diff_str, re.MULTILINE)
     for m in matches:
         filenames.append(m.strip())
     return list(set(filenames))
@@ -48,6 +47,12 @@ def validate_patch_safety(diff_str: str) -> ValidationResult:
     new_imports = detect_new_imports(diff_str)
     if new_imports:
         return ValidationResult(False, f"ESCALATE: Patch adds new imports: {', '.join(new_imports)}", files_modified)
+
+    # 3. Authorization Check
+    FORBIDDEN_PATTERNS = ["backend/", ".env", ".supabase/", "Dockerfile", "docker-compose", "package-lock.json", "requirements.txt"]
+    for filename in files_modified:
+        if any(pattern in filename for pattern in FORBIDDEN_PATTERNS):
+            return ValidationResult(False, f"ESCALATE: Patch attempts to modify unauthorized file: {filename}", files_modified)
 
     return ValidationResult(True, "Safe for application", files_modified)
 

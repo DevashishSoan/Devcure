@@ -6,10 +6,17 @@ try:
 except ImportError:
     docker = None
 import time
+import logging
 import subprocess
 import requests
 from typing import Optional, Dict
 from core.config import settings
+
+logger = logging.getLogger(__name__)
+
+class SecurityError(Exception):
+    """Raised for security-related violations."""
+    pass
 
 class SandboxTimeoutError(Exception):
     """Raised when a command exceeds its timeout."""
@@ -31,7 +38,7 @@ class SandboxManager:
             try:
                 self.client = docker.from_env()
             except Exception as e:
-                print(f"Warning: Docker not available, falling back to mock mode. Error: {e}")
+                logger.warning(f"Docker not available, falling back to mock mode. Error: {e}")
 
     def create_sandbox(self, repo_url: Optional[str] = None, token: Optional[str] = None) -> Dict:
         """
@@ -55,11 +62,19 @@ class SandboxManager:
         return metadata
 
     def get_path(self, sandbox_id: str) -> str:
-        """Resolves a sandbox UUID to its absolute disk path."""
-        if sandbox_id in self.sandboxes:
-            return self.sandboxes[sandbox_id]["path"]
-        # Fallback: reconstruct path from base_path + id (e.g. after a restart)
-        return os.path.abspath(os.path.join(self.base_path, sandbox_id))
+        """Resolves a sandbox UUID to its absolute disk path with traversal protection."""
+        # UUID validation
+        try:
+            uuid.UUID(sandbox_id)
+        except ValueError:
+            raise SecurityError("Invalid sandbox ID format")
+
+        path = os.path.realpath(os.path.join(self.base_path, sandbox_id))
+        base_real = os.path.realpath(self.base_path)
+        
+        if not path.startswith(base_real):
+            raise SecurityError("Path traversal detected")
+        return path
 
     def clone_repo(self, path: str, repo_url: str, token: Optional[str] = None):
         """Clones a repository into the specified path."""
@@ -75,10 +90,12 @@ class SandboxManager:
                 cwd=path,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
+                shell=False,
+                env=self._get_safe_env()
             )
         except Exception as e:
-            print(f"Cloning failed: {e}")
+            logger.error(f"Cloning failed for {repo_url}: {e}")
             # Fallback for mock/test mode
             with open(os.path.join(path, "README.md"), "w") as f:
                 f.write(f"# Repo cloned from {repo_url}\n(Cloning actually failed: {e})")
@@ -98,30 +115,42 @@ class SandboxManager:
         with open(full_path, "w", encoding="utf-8") as f:
             f.write(content)
 
-    def install_dependencies(self, sandbox_id: str):
+    def install_dependencies(self, sandbox_id: str) -> bool:
         """
         Installs project dependencies within the sandbox.
-        Checks for requirements.txt or pyproject.toml.
+        Returns True if all installations succeeded (exit code 0), False otherwise.
         """
-        print(f"[{sandbox_id}] Installing project dependencies...")
+        logger.info(f"[{sandbox_id}] Installing project dependencies...")
         
+        success = True
+        sandbox_path = self.get_path(sandbox_id)
+
         # Check for requirements.txt
-        if os.path.exists(os.path.join(self.base_path, sandbox_id, "requirements.txt")):
-            self.run_command(sandbox_id, "pip install -r requirements.txt", timeout=60)
+        if os.path.exists(os.path.join(sandbox_path, "requirements.txt")):
+            _, exit_code = self.run_command_ext(sandbox_id, "pip install -r requirements.txt", timeout=60)
+            if exit_code != 0: success = False
         
         # Check for pyproject.toml (poetry/pip-install)
-        elif os.path.exists(os.path.join(self.base_path, sandbox_id, "pyproject.toml")):
-            self.run_command(sandbox_id, "pip install .", timeout=60)
+        elif os.path.exists(os.path.join(sandbox_path, "pyproject.toml")):
+            _, exit_code = self.run_command_ext(sandbox_id, "pip install .", timeout=60)
+            if exit_code != 0: success = False
+            
+        return success
 
     def run_command(self, sandbox_id: str, command: str, image: str = "python:3.12-slim", timeout: int = 300) -> str:
+        """Executes a command and returns only the output (stdout+stderr)."""
+        output, _ = self.run_command_ext(sandbox_id, command, image, timeout)
+        return output
+
+    def run_command_ext(self, sandbox_id: str, command: str, image: str = "python:3.12-slim", timeout: int = 300) -> tuple[str, int]:
         """
-        Executes a command within a Docker container or local subprocess.
+        Executes a command and returns a tuple of (output, exit_code).
         """
         sandbox_path = os.path.abspath(os.path.join(self.base_path, sandbox_id))
         if not os.path.exists(sandbox_path):
             raise FileNotFoundError(f"Sandbox {sandbox_id} not found.")
 
-        # Prioritize local mode if configured or if Docker is unavailable
+        # Prioritize local mode
         if settings.SANDBOX_TYPE == "local" or not self.client:
             return self._run_local_command(sandbox_id, command, timeout)
 
@@ -164,9 +193,16 @@ class SandboxManager:
         sandbox_path = os.path.abspath(os.path.join(self.base_path, sandbox_id))
         
         # Guard 1: Use list format for subprocess and NEVER use shell=True
-        # We split the command string into a list. For simple pytest/pip commands this is direct.
-        # For complex commands with pipes, we'd need a different approach, but for QA it's usually simple.
-        cmd_list = ["/bin/sh", "-c", command] if os.name != 'nt' else ["cmd", "/c", command]
+        # On Windows, we try to run the command directly if it's a single executable call, 
+        # otherwise we fallback to cmd /c only if necessary.
+        if os.name == 'nt':
+            if ' ' not in command:
+                cmd_list = [command]
+            else:
+                # Use a safer way to call cmd /c
+                cmd_list = ["cmd", "/c", command]
+        else:
+            cmd_list = ["/bin/sh", "-c", command]
 
         try:
             result = subprocess.run(
@@ -178,7 +214,7 @@ class SandboxManager:
                 shell=False, # Mandatory security guard
                 env=self._get_safe_env() # Mandatory security guard
             )
-            return result.stdout + "\n" + result.stderr
+            return (result.stdout + "\n" + result.stderr), result.returncode
         except subprocess.TimeoutExpired:
             raise SandboxTimeoutError(f"Local command '{command}' exceeded {timeout}s timeout.")
         except Exception as e:
@@ -193,13 +229,20 @@ class SandboxManager:
         sensitive_keys = [
             "SUPABASE_URL",
             "SUPABASE_KEY",
+            "SUPABASE_SERVICE_KEY",
+            "SUPABASE_JWT_SECRET",
             "GEMINI_API_KEY",
             "GITHUB_TOKEN",
             "GITHUB_WEBHOOK_SECRET",
-            "DATABASE_URL"
+            "DATABASE_URL",
+            "SECRET_KEY",
+            "API_KEY"
         ]
         for key in sensitive_keys:
-            safe_env.pop(key, None)
+            # Multi-platform case-insensitive env removal
+            for k in list(safe_env.keys()):
+                if k.upper() == key.upper():
+                    safe_env.pop(k, None)
         return safe_env
 
     def cleanup_expired_sandboxes(self):

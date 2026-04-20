@@ -1,111 +1,59 @@
-from fastapi import APIRouter, Request, BackgroundTasks, Depends, HTTPException
-from typing import Optional, Any
-from core.database import get_supabase
-from agents.test_gen import test_gen_agent
-from sandbox.manager import sandbox_manager
-try:
-    from supabase import Client
-except ImportError:
-    Client = Any
-from core.config import settings
-import uuid
-import asyncio
-import time
 import hmac
 import hashlib
+import time
+import uuid
+import logging
+from fastapi import APIRouter, Request, BackgroundTasks, Depends, HTTPException
+from typing import Optional
+from core.runner import run_autonomous_qa_with_config
+from core.database import get_supabase
+from core.config import settings
+from supabase import Client
 
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
+logger = logging.getLogger(__name__)
 
-def verify_signature(payload_body: bytes, signature_header: str) -> bool:
-    """Verifies that the payload was signed by GitHub using the configured secret."""
-    if not signature_header or not settings.GITHUB_WEBHOOK_SECRET:
+# Webhook deduplication
+webhook_cache = {}
+DEDUPE_WINDOW_SECONDS = 30
+
+def verify_signature(payload: bytes, signature: str) -> bool:
+    """Verifies that the webhook payload matches the GitHub signature."""
+    if not settings.GITHUB_WEBHOOK_SECRET:
+        if settings.QA_MODE:
+            logger.warning("GITHUB_WEBHOOK_SECRET is missing! Allowing all webhooks because QA_MODE is ON.")
+            return True
         return False
     
-    expected = hmac.new(
-        settings.GITHUB_WEBHOOK_SECRET.encode(),
-        payload_body,
-        hashlib.sha256
-    ).hexdigest()
+    if not signature:
+        return False
     
-    expected_header = f"sha256={expected}"
-    
-    # Timing-safe comparison to prevent side-channel attacks
-    return hmac.compare_digest(expected_header, signature_header)
-
-async def run_autonomous_qa(run_id: str, repo: str, branch: str, supabase: Client):
-    """
-    Background task to execute the LangGraph agent cycle.
-    """
-    run_start_time = time.time()
     try:
-        # 1. Create sandbox with PAT token
-        sandbox = sandbox_manager.create_sandbox(
-            repo_url=f"https://github.com/{repo}",
-            token=settings.GITHUB_TOKEN
-        )
+        sha_name, signature_hash = signature.split('=')
+        if sha_name != 'sha256':
+            return False
+            
+        mac = hmac.new(settings.GITHUB_WEBHOOK_SECRET.encode(), msg=payload, digestmod=hashlib.sha256)
+        return hmac.compare_digest(mac.hexdigest(), signature_hash)
+    except Exception:
+        return False
+
+
+async def get_repo_config(repo_url: str, supabase: Client) -> dict | None:
+    """Look up which user has connected this repo and get its configuration."""
+    try:
+        # Check both full URL and shorthand
+        result = supabase.table("repo_configs") \
+            .select("*") \
+            .or_(f"repo_url.eq.{repo_url},repo_url.ilike.%{repo_url.split('/')[-1]}") \
+            .limit(1) \
+            .execute()
         
-        # 1.5 Prepare environment (pip install)
-        sandbox_manager.install_dependencies(sandbox["id"])
-        setup_time_seconds = round(time.time() - run_start_time, 2)
-        
-        # 2. Update status to running and record setup telemetry
-        if supabase:
-            supabase.table("runs").update({
-                "status": "running",
-                "setup_time_seconds": setup_time_seconds,
-                "updated_at": "now()"
-            }).eq("id", run_id).execute()
-        
-        # 3. Execute LangGraph Agent
-        state = {
-            "run_id": run_id,
-            "sandbox_id": sandbox["id"],
-            "repo_path": sandbox["path"],
-            "repo_full_name": repo,        # e.g. "DevashishSoan/Devcure"
-            "branch": branch,              # e.g. "test/autonomous-repair"
-            "files": [],
-            "failures": [],
-            "baseline_failures": set(),
-            "target_test_names": set(),
-            "diagnosis": None,
-            "repair_diff": None,
-            "pr_url": None,
-            "iteration": 0,
-            "max_iterations": 5,
-            "status": "starting",
-            "target_file": None,
-            "run_start_time": run_start_time,
-            "setup_time_seconds": setup_time_seconds,
-            "agent_start_time": time.time(),
-            "trajectory": [],
-            "framework_detected": None
-        }
-        
-        final_state = await test_gen_agent.ainvoke(state)
-        
-        # 4. Final update (Agent completion - MTTR will be updated in verification_node Option A)
-        # But we ensure status and iterations are synced here too.
-        if supabase:
-            try:
-                update_payload = {
-                    "status": final_state["status"],
-                    "iterations_used": final_state["iteration"],
-                    "updated_at": "now()"
-                }
-                if final_state.get("pr_url"):
-                    update_payload["pr_url"] = final_state["pr_url"]
-                supabase.table("runs").update(update_payload).eq("id", run_id).execute()
-            except Exception as e:
-                print(f"Warning: Final status sync failed: {e}")
-        
+        if result.data and len(result.data) > 0:
+            return result.data[0]
     except Exception as e:
-        print(f"Error in autonomous run {run_id}: {e}")
-        if supabase:
-            supabase.table("runs").update({"status": "failed"}).eq("id", run_id).execute()
-    finally:
-        # Cleanup (Optional: keep for debugging if failed)
-        # sandbox_manager.cleanup_sandbox(sandbox["id"])
-        pass
+        print(f"Error looking up config for repo {repo_url}: {e}")
+    return None
 
 @router.post("/github")
 async def github_webhook(
@@ -128,25 +76,58 @@ async def github_webhook(
 
     if event_type == "push":
         repo_name = payload.get("repository", {}).get("full_name", "unknown")
+        repo_url = payload.get("repository", {}).get("clone_url", "")
         branch = payload.get("ref", "").replace("refs/heads/", "")
+        commit_sha = payload.get("after", "")
         
+        # 1.2 Webhook Deduplication
+        now = time.time()
+        if commit_sha in webhook_cache:
+            if now - webhook_cache[commit_sha] < DEDUPE_WINDOW_SECONDS:
+                logger.info(f"Ignoring duplicate webhook for commit {commit_sha}")
+                return {"status": "ignored", "message": "Duplicate push detected within 30s"}
+        webhook_cache[commit_sha] = now
+        
+        # Cleanup cache occasionally
+        if len(webhook_cache) > 1000:
+            expired = [k for k, v in webhook_cache.items() if now - v > DEDUPE_WINDOW_SECONDS]
+            for k in expired: del webhook_cache[k]
+
+        # 1.5 Find the owning user (Multi-tenancy lookup)
+        repo_config = await get_repo_config(repo_url, supabase)
+        if not repo_config:
+            logger.info(f"Received push for unconfigured repo: {repo_url}")
+            return {"status": "repo not configured", "message": "Repository not configured in DevCure"}
+
+        user_id = repo_config["user_id"]
+        
+        # 1.6 Branch Filtering
+        configured_branch = repo_config.get("branch", "main")
+        if branch != configured_branch:
+            logger.info(f"Ignoring push to branch {branch} (Configured: {configured_branch})")
+            return {"status": "ignored", "message": f"Push to {branch} ignored."}
+
         run_id = f"run-{uuid.uuid4().hex[:8]}"
         
-        # 1. Create run entry in Supabase
+        # 2. Create run entry in Supabase with user_id
         if supabase:
             try:
                 supabase.table("runs").insert({
                     "id": run_id,
+                    "user_id": user_id,
                     "repo": repo_name,
                     "branch": branch,
+                    "commit_sha": commit_sha,
                     "status": "queued",
                     "run_type": "Autonomous Fix"
                 }).execute()
             except Exception as e:
-                print(f"Warning: Failed to create run entry in Supabase: {e}")
+                logger.error(f"Failed to create run entry in Supabase: {e}")
 
-        # 2. Queue the background task
-        background_tasks.add_task(run_autonomous_qa, run_id, repo_name, branch, supabase)
+        # 3. Queue the background task
+        max_iterations = repo_config.get("max_iterations", 5)
+        logger.info(f"Queueing run {run_id} for {repo_name}@{branch}")
+        background_tasks.add_task(run_autonomous_qa_with_config, run_id, user_id, repo_name, branch, max_iterations, supabase)
 
         return {
             "status": "accepted",

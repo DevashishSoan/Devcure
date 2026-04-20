@@ -9,95 +9,105 @@ import {
   Settings,
   Shield,
   LogOut,
+  Zap,
 } from "lucide-react";
 import { signOut } from "@/lib/api";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useStats } from "@/hooks/useStats";
 
-export default function Sidebar({ stats }: { stats: any }) {
+export default function Sidebar() {
   const pathname = usePathname();
+  const { stats } = useStats();
+
+  // Don't show sidebar on landing page or auth pages
+  const isAuthPage = pathname?.startsWith("/auth");
+  const isLandingPage = pathname === "/";
+  if (isAuthPage || isLandingPage) return null;
 
   const navItems = [
-    { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", href: "/" },
+    { id: "dashboard", icon: LayoutDashboard, label: "Neural Overview", href: "/dashboard" },
     { id: "repos", icon: FolderGit2, label: "Repositories", href: "/repos" },
-    { id: "runs", icon: Activity, label: "Active Runs", href: "/runs" },
-    { id: "sandbox", icon: Terminal, label: "Sandbox Logs", href: "/sandbox" },
+    { id: "runs", icon: Activity, label: "Autonomous Runs", href: "/runs" },
     { id: "settings", icon: Settings, label: "Settings", href: "/settings" },
   ];
 
   return (
-    <aside className="w-[260px] border-r border-slate-800/60 bg-[#020617]/80 backdrop-blur-2xl p-6 flex flex-col gap-8 shrink-0">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-          <Shield className="text-white" size={22} />
+    <aside className="w-[280px] border-r border-white/5 bg-[#040508] p-8 flex flex-col gap-10 shrink-0 z-30">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-acid to-plasma flex items-center justify-center shadow-lg shadow-acid/20 group cursor-pointer transition-all duration-500 hover:rotate-[360deg]">
+          <Shield className="text-void" size={24} />
         </div>
         <div>
-          <span className="text-xl font-bold tracking-tight text-white">DevCure</span>
-          <p className="text-[10px] text-slate-500 font-medium -mt-0.5">AUTONOMOUS QA</p>
+          <span className="text-2xl font-black tracking-tighter text-white">DevCure</span>
+          <p className="text-[9px] text-acid font-black tracking-[0.3em] -mt-1 uppercase">Proto-Agent</p>
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1.5">
+      <nav className="flex flex-col gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 ml-4 mb-2">Network Control</p>
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.id}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
                 isActive
-                  ? "bg-blue-600/10 text-blue-400 border border-blue-500/15 shadow-sm shadow-blue-500/5"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+                  ? "bg-white/5 text-white ring-1 ring-white/10"
+                  : "text-slate-500 hover:text-white hover:bg-white/[0.02]"
               }`}
             >
               <item.icon
                 size={18}
                 className={
                   isActive
-                    ? "text-blue-400"
-                    : "text-slate-600 group-hover:text-blue-400/70 transition-colors"
+                    ? "text-acid"
+                    : "text-slate-700 group-hover:text-acid/70 transition-colors"
                 }
               />
-              <span className="text-sm font-semibold">{item.label}</span>
+              <span className="text-[13px] font-black uppercase tracking-widest">{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto">
-        <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-600/10 to-indigo-600/10 border border-blue-500/10">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-blue-400">PRO PLAN</p>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
-              ACTIVE
+      <div className="mt-auto space-y-6">
+        <div className="p-6 rounded-2xl bg-gradient-to-br from-white/[0.03] to-transparent border border-white/5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-acid/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-acid/10 transition-colors" />
+          
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Zap size={14} className="text-acid" />
+              <p className="text-[10px] font-black text-white uppercase tracking-widest">Protocol α</p>
+            </div>
+            <span className="text-[8px] font-black px-2 py-0.5 rounded bg-acid/10 text-acid border border-acid/20">
+              OPTIMIZED
             </span>
           </div>
-          <p className="text-xs text-slate-500">
-            {stats?.active_sandboxes || 0}/{stats?.max_sandboxes || 200} sandboxes
-          </p>
-          <div className="w-full h-1.5 bg-slate-800/60 rounded-full mt-3 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-1000"
-              style={{
-                width: `${
-                  ((stats?.active_sandboxes || 0) /
-                    (stats?.max_sandboxes || 200)) *
-                  100
-                }%`,
-              }}
-            />
+          
+          <div className="space-y-3">
+             <div className="flex justify-between items-end">
+               <p className="text-[10px] text-slate-500 uppercase font-black">Capacity</p>
+               <p className="text-xs font-black text-white">{stats?.active_sandboxes || 0} <span className="text-slate-600">/ 200</span></p>
+             </div>
+             <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-acid shadow-[0_0_10px_rgba(0,255,136,0.3)] transition-all duration-1000"
+                  style={{ width: `${((stats?.active_sandboxes || 0) / 200) * 100}%` }}
+                />
+             </div>
           </div>
-        </div>
         </div>
 
         {/* User Info / Logout */}
-        <div className="mt-6 pt-6 border-t border-slate-800/60">
+        <div className="pt-6 border-t border-white/5">
            <button 
              onClick={() => signOut()}
-             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/5 transition-all duration-200 group"
+             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-red-500 hover:bg-red-500/5 transition-all duration-300 group"
            >
-             <LogOut size={18} className="text-slate-600 group-hover:text-red-400/70" />
-             <span className="text-sm font-semibold">Sign Out</span>
+             <LogOut size={18} className="text-slate-700 group-hover:text-red-500 animate-pulse" />
+             <span className="text-[11px] font-black uppercase tracking-widest">Terminate Session</span>
            </button>
         </div>
       </div>

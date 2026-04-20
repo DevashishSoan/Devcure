@@ -15,7 +15,8 @@ import {
   Bell,
   Cpu,
   Loader2,
-  XCircle
+  XCircle,
+  Shield
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -74,11 +75,11 @@ export default function RunDetailPage() {
 
   return (
     <div className="flex min-h-screen bg-[#020617] text-slate-200 font-[var(--font-inter)]">
-      <Sidebar stats={null} />
+      <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-16 border-b border-slate-800/40 bg-[#020617]/60 backdrop-blur-xl px-8 flex items-center justify-between shrink-0">
+        <header className="h-16 border-b border-border-subtle bg-bg-surface px-8 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
             <Link href="/" className="p-2 hover:bg-slate-800/40 rounded-lg transition-colors text-slate-500 hover:text-white">
               <ArrowLeft size={18} />
@@ -102,7 +103,7 @@ export default function RunDetailPage() {
         <section className="flex-1 overflow-y-auto p-8 lg:p-10">
           <div className="max-w-6xl mx-auto space-y-8 pb-20">
             {/* Summary Card */}
-            <div className="p-6 rounded-2xl border border-slate-800/40 bg-[#0a0f1e]/60 space-y-6">
+            <div className="p-6 rounded-2xl border border-border-subtle bg-bg-surface space-y-6">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
                   <h2 className="text-2xl font-bold text-white capitalize">{run?.repo} Fix Execution</h2>
@@ -143,7 +144,7 @@ export default function RunDetailPage() {
                  </div>
 
                  {run?.diagnosis && (
-                   <div className="p-5 rounded-2xl border border-blue-500/10 bg-blue-600/5 space-y-3">
+                   <div className="p-5 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 space-y-3">
                      <h3 className="text-sm font-bold text-blue-400 flex items-center gap-2">
                        <Cpu size={16} />
                        AI Diagnosis Report
@@ -159,10 +160,10 @@ export default function RunDetailPage() {
                <div className="space-y-6">
                  <div className="space-y-4">
                     <h3 className="text-lg font-bold flex items-center gap-2 text-white">
-                      <GitPullRequest size={18} className="text-emerald-400" />
+                      <GitPullRequest size={18} className="text-success" />
                       Proposed Resolution
                     </h3>
-                    <div className="h-[400px] rounded-2xl border border-slate-800/60 bg-slate-900/20 overflow-hidden flex flex-col">
+                    <div className="h-[400px] rounded-2xl border border-border-subtle bg-bg-deep p-1 overflow-hidden flex flex-col">
                        {run?.repair_diff ? (
                          <div className="flex-1 p-4 font-mono text-xs overflow-y-auto">
                             <pre className="text-slate-300">
@@ -242,7 +243,7 @@ function StatusBadge({ status }: { status: string }) {
   const configs: Record<string, { color: string; bg: string; icon: any; label: string; animate?: string }> = {
     completed: { color: "text-emerald-400", bg: "bg-emerald-500/10", icon: CheckCircle2, label: "Resolved" },
     failed: { color: "text-red-400", bg: "bg-red-500/10", icon: XCircle, label: "Failed" },
-    escalated: { color: "text-amber-400", bg: "bg-amber-500/10", icon: ShieldCheck, label: "Escalated" },
+    escalated: { color: "text-amber-400", bg: "bg-amber-500/10", icon: Shield, label: "Escalated" },
     running: { color: "text-blue-400", bg: "bg-blue-500/10", icon: Loader2, label: "In Progress", animate: "animate-spin" },
     queued: { color: "text-amber-400", bg: "bg-amber-500/10", icon: Clock, label: "Queued" },
   };

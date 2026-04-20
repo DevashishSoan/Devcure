@@ -1,0 +1,49 @@
+﻿python : C:\Users\soand\AppData\Roaming\Python\Python314\site-packages\langchain_core\_api\deprecation.py:25: 
+UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+At line:1 char:1
++ python backend/tests/simulate_run.py > sim_output.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\soand\....14 or greater.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  from pydantic.v1.fields import FieldInfo as FieldInfoV1
+C:\Users\soand\Desktop\DevCure\backend\tests\..\core\ai.py:1: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+Warning: Docker not available, falling back to mock mode. Error: Error while fetching server API version: (2, 'CreateFile', 'The system cannot find the file specified.')
+
+>>> TEST CASE A: SUCCESS
+
+--- Simulating Run (Scenario: success) ---
+[test-success] Capturing baseline failures...
+[test-success] Diagnosing failures using Gemini Flash...
+[test-success] Proposing surgical repair for app.py...
+[test-success] Verifying fix with full test suite...
+
+Final State:
+  Status: escalated
+  Iterations: 1
+  Diagnosis: REGRESSION: Fix introduced new failures in: tests/test_app.py::test_a
+Traceback (most recent call last):
+  File "C:\Users\soand\Desktop\DevCure\backend\tests\simulate_run.py", line 172, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "C:\Python314\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Python314\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Python314\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\soand\Desktop\DevCure\backend\tests\simulate_run.py", line 126, in main
+    assert success_state["status"] == "completed"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

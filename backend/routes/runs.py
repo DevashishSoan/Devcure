@@ -1,82 +1,213 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+from typing import List, Optional
+from pydantic import BaseModel
 from models.schemas import RunEvent, RunStats
 from core.config import settings
 from core.database import get_supabase
+from core.auth import get_current_user
+from core.runner import run_autonomous_qa_with_config
 from supabase import Client
+from core.github import github_service
 import os
 import time
+import uuid
+import logging
+
+logger = logging.getLogger(__name__)
+
+class ManualRunRequest(BaseModel):
+    repo_id: str
+    commit_sha: str = "HEAD"
+    branch: str = "main"
 
 router = APIRouter(prefix="/runs", tags=["Runs"])
 
 @router.get("/", response_model=List[dict])
-async def list_runs(supabase: Client = Depends(get_supabase)):
-    """Returns all recent autonomous runs from Supabase."""
+async def list_runs(
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """Returns all recent autonomous runs for the authenticated user."""
+    user_id = user.get("sub")
     if not supabase:
         return []
     
-    response = supabase.table("runs").select("*").order("created_at", desc=True).limit(50).execute()
+    response = supabase.table("runs").select("*") \
+        .eq("user_id", user_id) \
+        .order("created_at", desc=True) \
+        .limit(50) \
+        .execute()
     return response.data
 
 @router.get("/stats")
-async def get_stats(supabase: Client = Depends(get_supabase)):
-    """Returns aggregated dashboard statistics."""
+async def get_stats(
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """Returns aggregated dashboard statistics for the authenticated user."""
+    user_id = user.get("sub")
     if not supabase:
-        # Fallback to mock-like stats if no DB connection
         return {
             "arr_percent": 0.0,
             "avg_mttr_seconds": 0.0,
-            "avg_mttr_display": "0m 00s",
             "active_sandboxes": 0,
-            "max_sandboxes": 200,
             "bugs_fixed_month": 0,
-            "total_runs_month": 0,
+            "total_runs": 0,
         }
 
-    # Stats aggregation from real telemetry
-    runs_res = supabase.table("runs").select("status, mttr_seconds").execute()
-    runs = runs_res.data
+    # 1. Total Runs
+    total_res = supabase.table("runs").select("id", count="exact").eq("user_id", user_id).execute()
+    total_count = total_res.count or 0
+
+    # 2. Completed Runs (Success Rate)
+    completed_res = supabase.table("runs").select("mttr_seconds", count="exact") \
+        .eq("user_id", user_id) \
+        .eq("status", "completed") \
+        .execute()
+    completed_count = completed_res.count or 0
     
-    completed = [r for r in runs if r["status"] == "completed"]
-    total = len(runs)
-    arr = (len(completed) / total * 100) if total > 0 else 0
-    
-    mttrs = [r["mttr_seconds"] for r in completed if r.get("mttr_seconds")]
+    # 3. Monthly Fixes
+    from datetime import datetime, timedelta
+    first_day_of_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    monthly_res = supabase.table("runs").select("id", count="exact") \
+        .eq("user_id", user_id) \
+        .eq("status", "completed") \
+        .gte("created_at", first_day_of_month) \
+        .execute()
+    monthly_fixes = monthly_res.count or 0
+
+    # 4. Active Sandboxes
+    active_res = supabase.table("runs").select("id", count="exact") \
+        .eq("user_id", user_id) \
+        .eq("status", "running") \
+        .execute()
+    active_sandboxes = active_res.count or 0
+
+    # 5. MTTR Calculation
+    mttrs = [r["mttr_seconds"] for r in completed_res.data if r.get("mttr_seconds")]
     avg_mttr = sum(mttrs) / max(len(mttrs), 1)
+    
+    arr = (completed_count / total_count * 100) if total_count > 0 else 0
 
     return {
-        "arr_percent": round(arr, 1),
-        "avg_mttr_seconds": round(avg_mttr, 1),
-        "avg_mttr_display": f"{int(avg_mttr // 60)}m {int(avg_mttr % 60):02d}s",
-        "active_sandboxes": 1, # Placeholder, in a real system we'd query sandbox_manager
-        "max_sandboxes": 200,
-        "bugs_fixed_month": len(completed),
-        "total_runs_month": total,
+        "autonomous_resolution_rate": round(arr, 1),
+        "mean_time_to_resolution": round(avg_mttr, 1),
+        "active_sandboxes": active_sandboxes,
+        "bugs_fixed_month": monthly_fixes,
+        "total_runs": total_count,
     }
 
 @router.get("/{run_id}")
-async def get_run(run_id: str, supabase: Client = Depends(get_supabase)):
-    """Returns details for a specific run."""
+async def get_run(
+    run_id: str,
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """Returns details for a specific run, verifying ownership."""
+    user_id = user.get("sub")
     if not supabase:
         raise HTTPException(status_code=500, detail="Database connection not available")
         
-    response = supabase.table("runs").select("*").eq("id", run_id).single().execute()
+    response = supabase.table("runs").select("*") \
+        .eq("id", run_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Run not found")
         
-    
     return response.data
 
+@router.get("/{run_id}/logs")
+async def get_run_logs(
+    run_id: str,
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """Returns real-time trajectory logs for a specific run."""
+    user_id = user.get("sub")
+    
+    response = supabase.table("runs").select("trajectory") \
+        .eq("id", run_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+    
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Run not found")
+        
+    return response.data.get("trajectory", [])
+
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def trigger_manual_run(
+    request: ManualRunRequest,
+    background_tasks: BackgroundTasks,
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """Triggers a manual autonomous QA run for a given repository."""
+    user_id = user.get("sub")
+    
+    # 1. Verify repository ownership
+    repo_res = supabase.table("repo_configs") \
+        .select("*") \
+        .eq("id", request.repo_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+    
+    repo_config = repo_res.data
+    if not repo_config:
+        raise HTTPException(status_code=404, detail="Repository not found or access denied")
+    
+    repo_name = repo_config["repo_url"].split("/")[-2] + "/" + repo_config["repo_url"].split("/")[-1]
+    run_id = f"run-{uuid.uuid4().hex[:8]}"
+    
+    # 2. Create the run record
+    supabase.table("runs").insert({
+        "id": run_id,
+        "user_id": user_id,
+        "repo": repo_name,
+        "branch": request.branch,
+        "commit_sha": request.commit_sha,
+        "status": "queued",
+        "run_type": "Manual Trigger",
+        "max_iterations": repo_config.get("max_iterations", 5)
+    }).execute()
+    
+    # 3. Queue the background task
+    background_tasks.add_task(
+        run_autonomous_qa_with_config, 
+        run_id, 
+        user_id, 
+        repo_name, 
+        request.branch, 
+        repo_config.get("max_iterations", 5), 
+        supabase
+    )
+    
+    return {"run_id": run_id, "status": "queued"}
+
 @router.post("/{run_id}/apply")
-async def apply_fix(run_id: str, supabase: Client = Depends(get_supabase)):
+async def apply_fix(
+    run_id: str,
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
     """
     Triggers the creation of a GitHub Pull Request for a completed repair.
+    Verifies ownership before applying.
     """
+    user_id = user.get("sub")
     if not supabase:
         raise HTTPException(status_code=500, detail="Database connection not available")
 
-    # 1. Fetch run details
-    run_res = supabase.table("runs").select("*").eq("id", run_id).single().execute()
+    # 1. Fetch run details (scoped to user)
+    run_res = supabase.table("runs").select("*") \
+        .eq("id", run_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
     run = run_res.data
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -111,3 +242,4 @@ async def apply_fix(run_id: str, supabase: Client = Depends(get_supabase)):
     }).eq("id", run_id).execute()
 
     return {"status": "success", "pr_url": pr_url}
+

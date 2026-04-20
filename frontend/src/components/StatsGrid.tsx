@@ -2,20 +2,54 @@
 
 import React from "react";
 import { Zap, Clock, Cpu, Bug } from "lucide-react";
+import { formatMTTR } from "@/lib/utils";
 
 export default function StatsGrid({ stats, isLoading }: { stats: any; isLoading: boolean }) {
   const statCards = stats ? [
-    { label: "Autonomous Resolution Rate", value: `${stats.arr_percent}%`, trend: "+5.4%", icon: Zap, color: "#3b82f6", glow: "shadow-blue-500/20" },
-    { label: "Mean Time to Resolution", value: stats.avg_mttr_display, trend: "-12s", icon: Clock, color: "#10b981", glow: "shadow-emerald-500/20" },
-    { label: "Active Sandboxes", value: `${stats.active_sandboxes}`, sub: `/ ${stats.max_sandboxes}`, trend: "Normal", icon: Cpu, color: "#f59e0b", glow: "shadow-amber-500/20" },
-    { label: "Bugs Fixed (Month)", value: `${stats.bugs_fixed_month}`, trend: "+24%", icon: Bug, color: "#ef4444", glow: "shadow-red-500/20" },
+    { 
+      label: "Autonomous Resolution", 
+      value: stats.autonomous_resolution_rate != null ? `${stats.autonomous_resolution_rate}%` : '—', 
+      trend: "LIVE", 
+      icon: Zap, 
+      color: "text-acid", 
+      glow: "shadow-acid/20",
+      bg: "bg-acid/10"
+    },
+    { 
+      label: "Mean Time to Resolution", 
+      value: stats.mean_time_to_resolution != null ? formatMTTR(stats.mean_time_to_resolution) : '—', 
+      trend: "AVG", 
+      icon: Clock, 
+      color: "text-ice", 
+      glow: "shadow-ice/20",
+      bg: "bg-ice/10"
+    },
+    { 
+      label: "Active Sandboxes", 
+      value: stats.active_sandboxes != null ? `${stats.active_sandboxes}` : '—', 
+      sub: `/ 200`, 
+      trend: "SYS", 
+      icon: Cpu, 
+      color: "text-plasma", 
+      glow: "shadow-plasma/20",
+      bg: "bg-plasma/10"
+    },
+    { 
+      label: "Bugs Fixed (Month)", 
+      value: stats.bugs_fixed_month != null ? `${stats.bugs_fixed_month}` : '—', 
+      trend: "SYNC", 
+      icon: Bug, 
+      color: "text-white", 
+      glow: "shadow-white/10",
+      bg: "bg-white/10"
+    },
   ] : [];
 
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-36 rounded-2xl border border-slate-800/40 bg-slate-900/30 animate-pulse" />
+          <div key={i} className="h-40 rounded-2xl border border-white/5 bg-white/5 animate-pulse" />
         ))}
       </div>
     );
@@ -26,26 +60,25 @@ export default function StatsGrid({ stats, isLoading }: { stats: any; isLoading:
       {statCards.map((stat, i) => (
         <div
           key={i}
-          className={`p-5 rounded-2xl border border-slate-800/40 bg-[#0a0f1e]/60 hover:border-slate-700/50 transition-all duration-300 group hover:shadow-lg ${stat.glow} animate-fade-in`}
-          style={{ animationDelay: `${i * 80}ms` }}
+          className={`relative p-8 rounded-2xl border border-white/5 bg-[#080b12]/60 backdrop-blur-md transition-all duration-500 group overflow-hidden hover:border-white/20`}
         >
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2.5 rounded-xl bg-slate-800/50 group-hover:bg-slate-800 transition-colors">
-              <stat.icon size={18} style={{ color: stat.color }} />
+          <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -mr-16 -mt-16 blur-[60px] opacity-0 group-hover:opacity-40 transition-opacity duration-700 ${stat.bg}`} />
+          
+          <div className="flex items-center justify-between mb-6">
+            <div className={`p-3 rounded-xl bg-white/5 group-hover:scale-110 transition-transform duration-300 ${stat.color}`}>
+              <stat.icon size={20} />
             </div>
-            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-              stat.trend.startsWith("+") ? "bg-emerald-500/10 text-emerald-400" :
-              stat.trend.startsWith("-") ? "bg-emerald-500/10 text-emerald-400" :
-              "bg-slate-700/30 text-slate-400"
-            }`}>
+            <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">
               {stat.trend}
             </span>
           </div>
-          <p className="text-2xl font-bold text-white mb-0.5">
-            {stat.value}
-            {stat.sub && <span className="text-sm text-slate-500 font-medium ml-1">{stat.sub}</span>}
-          </p>
-          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{stat.label}</p>
+          <div className="relative z-10">
+            <p className="text-3xl font-black text-white tracking-tighter mb-1 select-none">
+              {stat.value}
+              {stat.sub && <span className="text-[11px] text-slate-600 font-bold ml-1.5 uppercase tracking-widest">{stat.sub}</span>}
+            </p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{stat.label}</p>
+          </div>
         </div>
       ))}
     </div>

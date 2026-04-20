@@ -4,6 +4,7 @@ from datetime import datetime
 
 class RunEvent(BaseModel):
     id: str
+    user_id: str
     repo: str
     branch: str
     status: Literal["queued", "running", "completed", "failed", "escalated"]
@@ -24,8 +25,21 @@ class RunStats(BaseModel):
     total_runs_month: int = 0
 
 class RepoConfig(BaseModel):
+    user_id: Optional[str] = None
     repo_url: str
     branch: str = "main"
     enabled: bool = True
     max_iterations: int = 5
+    framework: str = "auto"
+    auto_repair: bool = True
+    webhook_secret: Optional[str] = None
     notification_channels: List[str] = ["slack"]
+
+class UserProfile(BaseModel):
+    user_id: str
+    github_username: Optional[str] = None
+    github_access_token: Optional[str] = None
+    slack_webhook_url: Optional[str] = None
+    notify_on_completed: bool = True
+    notify_on_escalated: bool = True
+    notify_via_email: bool = False

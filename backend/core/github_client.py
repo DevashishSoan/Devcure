@@ -88,6 +88,17 @@ async def push_file(
     resp.raise_for_status()
 
 
+async def get_existing_pr(client: httpx.AsyncClient, repo: str, head: str) -> Optional[dict]:
+    """Checks if an open PR exists for the given head branch."""
+    url = f"{GITHUB_API}/repos/{repo}/pulls"
+    # Format for head is 'org:branch' or 'user:branch'
+    params = {"head": head, "state": "open"}
+    resp = await client.get(url, headers=_auth_headers(), params=params)
+    resp.raise_for_status()
+    pulls = resp.json()
+    return pulls[0] if pulls else None
+
+
 async def create_pull_request(
     client: httpx.AsyncClient,
     repo: str,
@@ -96,7 +107,19 @@ async def create_pull_request(
     title: str,
     body: str,
 ) -> str:
-    """Opens a Pull Request and returns its HTML URL."""
+    """Opens a Pull Request or updates an existing one, returning its HTML URL."""
+    # Check if PR already exists for this branch
+    org = repo.split("/")[0]
+    existing_pr = await get_existing_pr(client, repo, f"{org}:{fix_branch}")
+    
+    if existing_pr:
+        # Update existing PR body
+        url = f"{GITHUB_API}/repos/{repo}/pulls/{existing_pr['number']}"
+        resp = await client.patch(url, headers=_auth_headers(), json={"body": body})
+        resp.raise_for_status()
+        return resp.json()["html_url"]
+
+    # Create new PR
     url = f"{GITHUB_API}/repos/{repo}/pulls"
     resp = await client.post(url, headers=_auth_headers(), json={
         "title": title,

@@ -1,42 +1,45 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/api";
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session && pathname !== "/login") {
-        router.push("/login");
-      } else if (session && pathname === "/login") {
-        router.push("/");
-      }
-      
+    console.log("AuthWrapper: Initializing...");
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("AuthWrapper: Auth State Change:", { event, user: session?.user?.email });
       setLoading(false);
-    };
-
-    checkUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session && pathname !== "/login") {
-        router.push("/login");
-      }
     });
 
-    return () => subscription.unsubscribe();
-  }, [pathname, router]);
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("AuthWrapper: Initial Session Check:", { user: session?.user?.email });
+      setLoading(false);
+    }).catch(err => {
+      console.error("AuthWrapper: Session check failed:", err);
+      setLoading(false);
+    });
 
-  if (loading && pathname !== "/login") {
+    return () => {
+      console.log("AuthWrapper: Cleaning up...");
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[var(--void)] flex flex-col items-center justify-center gap-4">
+        {/* Premium Scanning Loader */}
+        <div className="relative">
+             <div className="absolute inset-0 bg-[var(--acid)] blur-2xl opacity-10 animate-pulse" />
+             <div className="w-12 h-12 border-2 border-[var(--acid)] border-t-transparent rounded-full animate-spin" />
+        </div>
+        <p className="text-[var(--text-muted)] text-[9px] font-mono tracking-[0.4em] uppercase animate-pulse">
+          Validating Protocol...
+        </p>
       </div>
     );
   }

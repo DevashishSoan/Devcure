@@ -11,18 +11,20 @@ import httpx
 import re
 import json
 import time
+import os
 from pathlib import Path
 
 class AgentState(TypedDict):
     run_id: str
+    user_id: str                  
     sandbox_id: str
     repo_path: str
-    repo_full_name: str   # e.g. "DevashishSoan/Devcure"
-    branch: str           # base branch the push came from
+    repo_full_name: str   
+    branch: str           
     files: List[str]
     failures: List[str]
-    baseline_failures: Set[str]
-    target_test_names: Set[str]
+    baseline_failures: List[str]
+    target_test_names: List[str]
     diagnosis: Optional[str]
     repair_diff: Optional[str]
     pr_url: Optional[str]
@@ -30,7 +32,6 @@ class AgentState(TypedDict):
     max_iterations: int
     status: str
     target_file: Optional[str]
-    # Telemetry & Trajectory
     run_start_time: float
     setup_time_seconds: float
     agent_start_time: float
@@ -102,7 +103,8 @@ class TestOutputParser:
 
     def _parse_pytest(self, output: str) -> VerificationResult:
         # Extract failed test names: e.g. "FAILED tests/test_app.py::test_fail"
-        failed_tests = re.findall(r'^FAILED\s+([\w\.\/:]+)', output, re.M)
+        # Removed ^ to be more robust across different line ending/padding scenarios
+        failed_tests = [t.strip() for t in re.findall(r'FAILED\s+([\w\.\/:]+)', output)]
         
         # Summary line: "1 failed, 2 passed in 0.12s"
         summary_match = re.search(r'(\d+)\s+failed', output)
@@ -116,7 +118,7 @@ class TestOutputParser:
             total_tests=passed_count + failed_count,
             passed=passed_count,
             failed=failed_count,
-            failed_test_names=failed_tests,
+            failed_test_names=list(set(failed_tests)), # Deduplicate
             output=output
         )
 
@@ -165,7 +167,7 @@ def persist_event(state: AgentState, status: str, log: Optional[str] = None, dat
     
     # Handle optional telemetry data that might be in 'data'
     if data:
-        for field in ["regressions_found", "mttr_seconds", "agent_time_seconds", "iterations_used", "pr_url"]:
+        for field in ["regressions_found", "mttr_seconds", "agent_time_seconds", "iterations", "pr_url"]:
             if field in data:
                 payload[field] = data[field]
     
@@ -181,7 +183,20 @@ async def baseline_node(state: AgentState):
     print(f"[{state['run_id']}] Capturing baseline failures...")
 
     sandbox_path = sandbox_manager.get_path(state['sandbox_id'])
+    if not sandbox_path or not os.path.exists(sandbox_path):
+        persist_event(state, "escalated", log="Failed to initialize sandbox (clone failure).")
+        return {"status": "escalated", "diagnosis": "ESCALATE: Git clone failure (wrong token, private repo, or repo deleted)."}
+
     framework = detect_test_framework(sandbox_path)
+    
+    # --- Task 3.4: Dependency Guard ---
+    deps_ok = sandbox_manager.install_dependencies(state['sandbox_id'])
+    if not deps_ok:
+        error_msg = "Dependency installation failed. Manual review required."
+        persist_event(state, "escalated", log=error_msg)
+        return {"status": "escalated", "diagnosis": f"ESCALATE: {error_msg}"}
+    # --- End Guard ---
+
     command = FRAMEWORK_COMMANDS.get(framework, "pytest -v")
     
     output = sandbox_manager.run_command(state['sandbox_id'], command)
@@ -190,8 +205,8 @@ async def baseline_node(state: AgentState):
     truncated_output = truncate_output(result.output)
     
     new_state = {
-        "baseline_failures": set(result.failed_test_names),
-        "target_test_names": set(result.failed_test_names),
+        "baseline_failures": list(result.failed_test_names),
+        "target_test_names": list(result.failed_test_names),
         "failures": [truncated_output],
         "framework_detected": framework,
         "status": "baseline_captured"
@@ -201,6 +216,7 @@ async def baseline_node(state: AgentState):
     merged = {**state, **new_state}
     persist_event(merged, "baseline_captured", log=f"Detected {framework}. Found {len(result.failed_test_names)} baseline failures.")
     
+    print(f"[{state['run_id']}] Baseline captured: {len(result.failed_test_names)} failures.")
     return new_state
 
 async def diagnosis_node(state: AgentState):
@@ -248,9 +264,12 @@ async def repair_node(state: AgentState):
 
     response = await call_gemini(prompt, system_instruction=system_instruction)
     
-    if "ESCALATE" in response.upper():
-        persist_event(state, "escalated", log="Agent signaled ESCALATE during repair.")
-        return {"status": "escalated", "iteration": state["iteration"] + 1}
+    # --- Task 3.3: Empty Diff Guard ---
+    if not response or not response.strip() or "ESCALATE" in response.upper():
+        msg = "Agent returned an empty string." if not response or not response.strip() else "Agent signaled ESCALATE."
+        persist_event(state, "escalated", log=msg)
+        return {"status": "escalated", "diagnosis": f"ESCALATE: {msg}", "iteration": state["iteration"] + 1}
+    # --- End Guard ---
 
     patch_diff = parse_agent_response(response)
     validation = validate_patch_safety(patch_diff)
@@ -277,7 +296,6 @@ async def verification_node(state: AgentState):
     Verifies the fix by running tests and checking for regressions.
     """
     print(f"[{state['run_id']}] Verifying fix with full test suite...")
-    
     sandbox_path = sandbox_manager.get_path(state['sandbox_id'])
     framework = state.get("framework_detected") or detect_test_framework(sandbox_path)
     command = FRAMEWORK_COMMANDS.get(framework, "pytest -v")
@@ -287,14 +305,23 @@ async def verification_node(state: AgentState):
     result = parser.parse(output, framework)
     truncated_output = truncate_output(result.output)
     
+    baseline_failures = [t.strip() for t in (state.get("baseline_failures") or [])]
+    target_tests = [t.strip() for t in (state.get("target_test_names") or [])]
+    current_failures = [t.strip() for t in result.failed_test_names]
+
     regressions = [
-        t for t in result.failed_test_names 
-        if t not in state["baseline_failures"] and t not in state["target_test_names"]
+        t for t in current_failures
+        if t not in baseline_failures and t not in target_tests
     ]
     
     if regressions:
         error_msg = f"REGRESSION: Fix introduced new failures in: {', '.join(regressions)}"
-        new_state = {"status": "escalated", "diagnosis": error_msg, "failures": [truncated_output]}
+        new_state = {
+            "status": "escalated", 
+            "diagnosis": error_msg, 
+            "failures": [truncated_output],
+            "regressions_found": regressions
+        }
         merged = {**state, **new_state}
         persist_event(merged, "escalated", log=error_msg, data={"regressions_found": regressions})
         return new_state
@@ -326,13 +353,19 @@ async def verification_node(state: AgentState):
                 print(f"[{state['run_id']}] PR creation failed (non-fatal): {e}")
         # --- End PR Automation ---
 
-        new_state = {"status": "completed", "failures": [truncated_output], "pr_url": pr_url}
+        new_state = {
+            "status": "completed", 
+            "failures": [truncated_output], 
+            "pr_url": pr_url
+        }
         merged = {**state, **new_state}
 
         persist_event(merged, "completed", log="Verification SUCCESS: All target tests passed!", data={
             "mttr_seconds": mttr,
             "agent_time_seconds": agent_time,
-            "iterations_used": state["iteration"],
+            "setup_time_seconds": state.get("setup_time_seconds"),
+            "iterations": state["iteration"],
+            "framework_detected": framework,
             "pr_url": pr_url,
         })
 
@@ -349,7 +382,14 @@ async def verification_node(state: AgentState):
         return new_state
 
 def should_continue(state: AgentState):
-    if state["status"] in ["completed", "escalated"]:
+    if state["status"] == "completed":
+        return END
+    if state["status"] == "escalated":
+        return END
+    if state.get("regressions_found") and len(state["regressions_found"]) > 0:
+        return END # Hard terminal on regressions
+    if state["iteration"] >= state["max_iterations"]:
+        state["status"] = "escalated"
         return END
     return "diagnose"
 
@@ -363,9 +403,22 @@ def build_test_gen_graph():
     
     workflow.set_entry_point("baseline")
     
-    workflow.add_edge("baseline", "diagnose")
-    workflow.add_edge("diagnose", "repair")
-    workflow.add_edge("repair", "verify")
+    workflow.add_conditional_edges(
+        "baseline",
+        lambda x: "diagnose" if x["status"] != "escalated" else END,
+        {"diagnose": "diagnose", END: END}
+    )
+    
+    workflow.add_conditional_edges(
+        "diagnose",
+        lambda x: "repair" if x["status"] != "escalated" else END,
+        {"repair": "repair", END: END}
+    )
+    workflow.add_conditional_edges(
+        "repair",
+        lambda x: "verify" if x["status"] not in ["escalated", "unresolved"] else ("diagnose" if x["status"] == "unresolved" else END),
+        {"verify": "verify", "diagnose": "diagnose", END: END}
+    )
     workflow.add_conditional_edges(
         "verify",
         should_continue,
