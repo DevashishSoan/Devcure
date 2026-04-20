@@ -72,14 +72,18 @@ async def verify_jwt(
         logger.info("JWT authentication failed: Token expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired"
+            detail="CREDENTIALS_EXPIRED"
         )
     except JWTError as e:
-        # Log the failure but don't return details to the client
-        logger.warning(f"JWT validation failed: {str(e)}")
+        error_msg = str(e)
+        if "Signature verification failed" in error_msg:
+             logger.critical(f"CRIT_AUTH: Signature verification failed. This usually means SUPABASE_JWT_SECRET is mismatched on the backend. (Token headers: {jwt.get_unverified_header(credentials.credentials)})")
+        else:
+             logger.warning(f"JWT validation failed: {error_msg}")
+             
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            detail="INVALID_SECURITY_TOKEN"
         )
 
 async def get_current_user(payload: dict = Depends(verify_jwt)) -> dict:

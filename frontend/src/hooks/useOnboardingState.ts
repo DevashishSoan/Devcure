@@ -29,9 +29,8 @@ export function useOnboardingState() {
 
       const userId = session.user.id;
       
-      // Step 1 check - GitHub OAuth provider match
-      const isGithubConnected = session.user.app_metadata.provider === "github" || 
-                               session.provider_token != null;
+      // Step 1 check - Mark as complete for any authenticated session (Email or Github)
+      const isGithubConnected = !!session.user;
 
       // Other checks across tables
       try {
