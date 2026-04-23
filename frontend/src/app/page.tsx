@@ -15,8 +15,8 @@ import { Footer } from "@/components/landing/Footer";
 export default function LandingPage() {
   useEffect(() => {
     const observerOptions = {
-      threshold: 0.1,
-      rootMargin: "0px 0px -40px 0px"
+      threshold: 0.15,
+      rootMargin: "0px 0px -50px 0px"
     };
 
     const observer = new IntersectionObserver((entries) => {
@@ -28,13 +28,19 @@ export default function LandingPage() {
     }, observerOptions);
 
     const revealElements = document.querySelectorAll(".reveal");
-    revealElements.forEach((el) => observer.observe(el));
+    revealElements.forEach((el, i) => {
+      // Stagger the initial load
+      if (el.getBoundingClientRect().top < window.innerHeight) {
+        setTimeout(() => el.classList.add("visible"), i * 100);
+      }
+      observer.observe(el);
+    });
 
     return () => observer.disconnect();
   }, []);
 
   return (
-    <main className="min-h-screen bg-[var(--void)] text-[var(--text-primary)]">
+    <main className="min-h-screen bg-[var(--void)] text-[var(--text-primary)] pt-24">
       <Nav />
       <Hero />
       <LogosStrip />

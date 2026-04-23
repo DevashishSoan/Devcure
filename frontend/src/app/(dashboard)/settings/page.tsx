@@ -177,6 +177,89 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Agent Neuro-Config */}
+          <div className="rounded-2xl border border-white/5 bg-[#080b12]/60 p-8 space-y-8 relative overflow-hidden group">
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-acid/5 rounded-full -ml-32 -mb-32 blur-[80px]" />
+            
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-acid/10 text-acid border border-acid/10">
+                <Shield size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Agent Neuro-Config</h3>
+                <p className="text-xs text-slate-500">Fine-tune the autonomous repair engine logic.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-left">
+              {/* Intelligence Brain */}
+              <div className="space-y-3 text-left">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block">Intelligence Brain</label>
+                <select 
+                  value={settings.ai_provider || "gemini"}
+                  onChange={(e) => setSettings({...settings, ai_provider: e.target.value})}
+                  className="w-full bg-void border border-white/5 rounded-xl py-3 px-4 text-[11px] font-bold text-white focus:outline-none focus:border-sky-400/30 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="gemini" className="bg-void text-white">Gemini 2.0 (Google)</option>
+                  <option value="minimax" className="bg-void text-white">MiniMax M2.7 (NVIDIA)</option>
+                  <option value="gemma" className="bg-void text-white">Gemma 2 27B (Google/OR)</option>
+                </select>
+                <p className="text-[9px] text-slate-600 px-1 italic">Switch between top-tier AI reasoning models.</p>
+              </div>
+
+              {/* Personality */}
+              <div className="space-y-3 text-left">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block">Logic Personality</label>
+                <select 
+                  value={settings.agent_personality || "Surgical"}
+                  onChange={(e) => setSettings({...settings, agent_personality: e.target.value})}
+                  className="w-full bg-void border border-white/5 rounded-xl py-3 px-4 text-[11px] font-bold text-white focus:outline-none focus:border-sky-400/30 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="Surgical" className="bg-void text-white">Surgical (Minimal risk)</option>
+                  <option value="Bold" className="bg-void text-white">Bold (Structural fixes)</option>
+                  <option value="Creative" className="bg-void text-white">Creative (New approaches)</option>
+                </select>
+                <p className="text-[9px] text-slate-600 px-1 italic">Controls the risk profile of suggested patches.</p>
+              </div>
+
+              {/* Threshold */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Confidence Gate</label>
+                  <span className="text-[10px] font-mono text-acid">{(settings.auto_repair_threshold * 100).toFixed(0)}%</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0.1" 
+                  max="1.0" 
+                  step="0.1"
+                  value={settings.auto_repair_threshold || 0.7}
+                  onChange={(e) => setSettings({...settings, auto_repair_threshold: parseFloat(e.target.value)})}
+                  className="w-full h-1 bg-void rounded-lg appearance-none cursor-pointer accent-acid mt-2"
+                />
+                <p className="text-[9px] text-slate-600 px-1 italic text-left">Confidence needed to auto-merge fixes.</p>
+              </div>
+
+              {/* Iterations */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recursion Depth</label>
+                  <span className="text-[10px] font-mono text-ice">{settings.max_repair_iterations || 5} CYCLES</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="10" 
+                  step="1"
+                  value={settings.max_repair_iterations || 5}
+                  onChange={(e) => setSettings({...settings, max_repair_iterations: parseInt(e.target.value)})}
+                  className="w-full h-1 bg-void rounded-lg appearance-none cursor-pointer accent-ice mt-2"
+                />
+                <p className="text-[9px] text-slate-600 px-1 italic text-left">Max repair attempts per resolution cycle.</p>
+              </div>
+            </div>
+          </div>
+
           <div className="pt-6 flex justify-end">
             <button 
               type="submit"

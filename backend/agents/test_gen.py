@@ -4,7 +4,7 @@ from langgraph.graph import StateGraph, END
 from sandbox.manager import sandbox_manager
 from core.config import settings
 from core.database import get_supabase
-from core.ai import call_gemini
+from core.ai import unified_ai_call
 from core.safety import validate_patch_safety, parse_agent_response
 from core.github_client import open_fix_pr
 import httpx
@@ -37,6 +37,9 @@ class AgentState(TypedDict):
     agent_start_time: float
     trajectory: List[Dict[str, Any]]
     framework_detected: Optional[str]
+    agent_personality: str
+    auto_repair_threshold: float
+    ai_provider: str
 
 @dataclass
 class VerificationResult:
@@ -229,9 +232,9 @@ async def diagnosis_node(state: AgentState):
     repo_info = f"Repository: {state['repo_path']}\nFiles: {', '.join(state['files'])}"
     
     prompt = f"Analyze the following test failures and repo context:\n\n{repo_info}\n\nFailures:\n{failures}\n\nProvide a concise diagnosis of the root cause."
-    system_instruction = "You are a senior QA automation engineer. Your goal is to diagnose test failures based on logs and repository structure. Be precise and technical."
+    system_instruction = f"You are a senior QA automation engineer with a '{state.get('agent_personality', 'Surgical')}' personality. Your goal is to diagnose test failures precisely and technically. Adapt your diagnosis style to your personality profile."
     
-    diagnosis = await call_gemini(prompt, system_instruction=system_instruction)
+    diagnosis = await unified_ai_call(state.get("ai_provider", "gemini"), prompt, system_instruction=system_instruction)
     target_file = state["files"][0] if state["files"] else None
     
     new_state = {"diagnosis": diagnosis, "status": "diagnosed", "target_file": target_file}
@@ -253,7 +256,10 @@ async def repair_node(state: AgentState):
     original_content = sandbox_manager.read_file(state["sandbox_id"], state["target_file"])
     
     system_instruction = (
-        "You are a surgical code repair agent. Output valid unified diff and nothing else."
+        f"You are a surgical code repair agent with a '{state.get('agent_personality', 'Surgical')}' persona. "
+        "Output valid unified diff and nothing else. "
+        "If your personality is 'Surgical', strive for minimal, low-risk patches. "
+        "If 'Bold', explore more comprehensive improvements to prevent future regressions."
     )
     prompt = (
         f"FAILING TEST OUTPUT:\n{state.get('failures', [])}\n\n"
@@ -262,7 +268,7 @@ async def repair_node(state: AgentState):
         "Output the unified diff now:"
     )
 
-    response = await call_gemini(prompt, system_instruction=system_instruction)
+    response = await unified_ai_call(state.get("ai_provider", "gemini"), prompt, system_instruction=system_instruction)
     
     # --- Task 3.3: Empty Diff Guard ---
     if not response or not response.strip() or "ESCALATE" in response.upper():

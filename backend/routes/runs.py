@@ -97,6 +97,42 @@ async def get_stats(
         "total_runs": total_count,
     }
 
+@router.post("/demo", status_code=status.HTTP_201_CREATED)
+async def trigger_demo_run(
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """
+    Creates a simulated autonomous run to demonstrate system capability 
+    and complete onboarding immediately.
+    """
+    user_id = user.get("sub")
+    run_id = f"run-demo-{uuid.uuid4().hex[:6]}"
+    
+    # Pre-populate trajectory with realistic AI agent steps
+    demo_trajectory = [
+        {"timestamp": time.time() - 120, "step": "Initialization", "message": "Neural engine online. Cloning workspace..."},
+        {"timestamp": time.time() - 100, "step": "Scanning", "message": "Detected regression in repository: auth_service.py"},
+        {"timestamp": time.time() - 80, "step": "Diagnostics", "message": "Analyzing trace logs... Root cause: Off-by-one error in JWT validator"},
+        {"timestamp": time.time() - 60, "step": "Repair", "message": "Drafting surgical patch..."},
+        {"timestamp": time.time() - 30, "step": "Validation", "message": "Patch verified in sandbox. ALL TESTS PASSED."}
+    ]
+
+    # Create the demo run record
+    supabase.table("runs").insert({
+        "id": run_id,
+        "user_id": user_id,
+        "repo": "demo/devcure-core",
+        "branch": "main",
+        "status": "running",
+        "run_type": "Instant Activation",
+        "trajectory": demo_trajectory,
+        "mttr_seconds": 180,
+        "iterations": 1
+    }).execute()
+    
+    return {"run_id": run_id, "status": "running"}
+
 @router.get("/{run_id}")
 async def get_run(
     run_id: str,
@@ -160,7 +196,9 @@ async def trigger_manual_run(
     if not repo_config:
         raise HTTPException(status_code=404, detail="Repository not found or access denied")
     
-    repo_name = repo_config["repo_url"].split("/")[-2] + "/" + repo_config["repo_url"].split("/")[-1]
+    # 1.1 Robust repo_name extraction (handles .git and varying path depths)
+    url_parts = repo_config["repo_url"].rstrip("/").replace(".git", "").split("/")
+    repo_name = f"{url_parts[-2]}/{url_parts[-1]}"
     run_id = f"run-{uuid.uuid4().hex[:8]}"
     
     # 2. Create the run record
@@ -242,4 +280,5 @@ async def apply_fix(
     }).eq("id", run_id).execute()
 
     return {"status": "success", "pr_url": pr_url}
+
 

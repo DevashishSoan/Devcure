@@ -16,12 +16,30 @@ import { trackConversion } from "@/lib/ab-testing";
 import { getAnonymousId } from "@/lib/anonymous-id";
 import Link from "next/link";
 import AddRepoModal from "@/components/AddRepoModal";
+import { triggerDemoRun } from "@/lib/api";
+import { toast } from "@/lib/toast";
+import { useRouter } from "next/navigation";
 
 export default function OnboardingPage() {
   const { steps, allComplete, loading } = useOnboardingState();
   const [activeStep, setActiveStep] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTriggering, setIsTriggering] = useState(false);
+  const router = useRouter();
+
+  const handleDemoTrigger = async () => {
+    setIsTriggering(true);
+    try {
+      await triggerDemoRun();
+      toast.success("Identity synchronized. Entering dashboard...");
+      router.push("/dashboard");
+    } catch (err) {
+      toast.error("Failed to trigger demo run. Please try again.");
+    } finally {
+      setIsTriggering(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -73,8 +91,8 @@ export default function OnboardingPage() {
       description: "Trigger an autonomous repair run by pushing a failing test.",
       icon: PlayCircle,
       completed: steps.run,
-      action: "Trigger First Run",
-      href: "/dashboard" // Or show a guide
+      action: "Instant Start (Demo)",
+      onClick: handleDemoTrigger
     },
     {
       id: "pr",
@@ -123,13 +141,30 @@ export default function OnboardingPage() {
                 </div>
 
                 {idx === activeStep && !step.completed && (
-                  <button 
-                    onClick={step.onClick}
-                    className="px-6 py-3 bg-acid text-void rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
-                  >
-                    {step.action}
-                    <ArrowRight size={14} />
-                  </button>
+                  step.onClick ? (
+                    <button 
+                      disabled={isTriggering}
+                      onClick={step.onClick}
+                      className="px-6 py-3 bg-acid text-void rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:scale-100"
+                    >
+                      {isTriggering && step.id === "run" ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          {step.action}
+                          <ArrowRight size={14} />
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <Link
+                      href={step.href || "#"}
+                      className="px-6 py-3 bg-acid text-void rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                    >
+                      {step.action}
+                      <ArrowRight size={14} />
+                    </Link>
+                  )
                 )}
               </div>
             </div>

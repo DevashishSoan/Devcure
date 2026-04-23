@@ -26,7 +26,20 @@ async def run_autonomous_qa_with_config(run_id: str, user_id: str, repo: str, br
         sandbox_manager.install_dependencies(sandbox["id"])
         setup_time_seconds = round(time.time() - run_start_time, 2)
         
-        # 2. Update status to running and record setup telemetry
+        # 2. Fetch User Profile for Neuro-Configuration (Personality, Thresholds)
+        profile_res = supabase.table("user_profiles") \
+            .select("agent_personality, auto_repair_threshold, max_repair_iterations") \
+            .eq("user_id", user_id) \
+            .single() \
+            .execute()
+        
+        profile = profile_res.data or {}
+        agent_personality = profile.get("agent_personality", "Surgical")
+        max_iterations = profile.get("max_repair_iterations", max_iterations)
+        auto_repair_threshold = profile.get("auto_repair_threshold", 0.7)
+        ai_provider = profile.get("ai_provider", "gemini")
+
+        # 2.5 Update status to running and record setup telemetry
         if supabase:
             supabase.table("runs").update({
                 "status": "running",
@@ -51,6 +64,9 @@ async def run_autonomous_qa_with_config(run_id: str, user_id: str, repo: str, br
             "pr_url": None,
             "iteration": 0,
             "max_iterations": max_iterations,
+            "auto_repair_threshold": auto_repair_threshold,
+            "agent_personality": agent_personality,
+            "ai_provider": ai_provider,
             "status": "starting",
             "target_file": None,
             "run_start_time": run_start_time,

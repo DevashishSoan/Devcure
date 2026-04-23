@@ -30,6 +30,7 @@ export function useOnboardingState() {
       const userId = session.user.id;
       
       // Step 1 check - Mark as complete for any authenticated session (Email or Github)
+      // This ensures "Identify Gateway" is checked if the user is logged in.
       const isGithubConnected = !!session.user;
 
       // Other checks across tables
@@ -40,6 +41,10 @@ export function useOnboardingState() {
           supabase.from("runs").select("pr_url").eq("user_id", userId).not("pr_url", "is", null).limit(1)
         ]);
 
+        if (repoRes.error) console.error("DC_ONBOARDING: repo_configs check failed:", repoRes.error);
+        if (runRes.error) console.error("DC_ONBOARDING: runs check failed:", runRes.error);
+        if (prRes.error) console.error("DC_ONBOARDING: PR check failed:", prRes.error);
+
         if (isMounted) {
           setSteps({
             github: isGithubConnected,
@@ -49,7 +54,7 @@ export function useOnboardingState() {
           });
         }
       } catch (err) {
-        console.error("DC_ONBOARDING: Error checking state:", err);
+        console.error("DC_ONBOARDING: Critical error checking state:", err);
       } finally {
         if (isMounted) {
           setLoading(false);

@@ -9,9 +9,19 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   notify_on_completed boolean default true,
   notify_on_escalated boolean default true,
   notify_via_email boolean default false,
+  agent_personality text default 'Surgical',
+  max_repair_iterations integer default 5,
+  auto_repair_threshold float default 0.7,
+  ai_provider text default 'gemini',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+-- Migration for existing users
+ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS agent_personality text DEFAULT 'Surgical';
+ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS max_repair_iterations integer DEFAULT 5;
+ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS auto_repair_threshold float DEFAULT 0.7;
+ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS ai_provider text DEFAULT 'gemini';
 
 -- 2. Enable RLS
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;

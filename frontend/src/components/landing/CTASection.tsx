@@ -1,60 +1,45 @@
 "use client";
 
+import React from "react";
+import { motion } from "framer-motion";
 import Link from "next/link";
-import { GithubIcon } from "./Icons";
-import { use3DTilt } from "@/hooks/use3DTilt";
 
 export const CTASection = () => {
-  const { cardRef, style, parallaxOffset, onMouseMove, onMouseLeave } = use3DTilt({ max: 6 });
-
   return (
-    <section className="relative py-[160px] flex flex-col items-center justify-center overflow-hidden">
-      {/* Target Halo */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--acid)]/10 blur-[120px] rounded-full pointer-events-none" />
-
-      <div 
-        ref={cardRef}
-        onMouseMove={onMouseMove}
-        onMouseLeave={onMouseLeave}
-        className="reveal relative z-10 glass-card p-16 md:p-24 text-center max-w-[1000px] mx-6" 
-        style={style}
+    <section className="py-64 flex flex-col items-center justify-center text-center px-6 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0891B2]/5 to-transparent pointer-events-none" />
+      
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true }}
+        transition={{ type: "spring", stiffness: 100, damping: 15 }}
+        className="relative z-10"
       >
-        <div style={{ transform: `translateZ(40px) translateX(${parallaxOffset.x}px)` }}>
-          <h2 className="text-[clamp(44px,7vw,84px)] font-extrabold font-[var(--font-display)] leading-[1.05] mb-8 text-white">
-            Stop debugging. <br />
-            <span className="text-[var(--acid)]">Start shipping.</span>
-          </h2>
-          
-          <p className="text-lg md:text-xl font-light text-[var(--text-secondary)] max-w-[400px] mx-auto mb-12 font-[var(--font-body)]">
-            Connect your first repository today and let the agent handle the test failures.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-12">
-            <Link
-              href="/signup"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-10 py-4 bg-[var(--acid)] text-[var(--void)] rounded-lg font-bold font-[var(--font-display)] transition-all hover:-translate-y-0.5 shadow-[0_10px_30px_rgba(0,255,136,0.3)] hover:shadow-[0_15px_40px_rgba(0,255,136,0.5)]"
-              style={{ transform: `translateZ(15px)` }}
-            >
-              <GithubIcon className="w-5 h-5" />
-              Connect GitHub free
-            </Link>
-            <Link
-              href="/docs"
-              className="w-full sm:w-auto px-10 py-4 bg-transparent border border-[var(--border-bright)] text-[var(--text-primary)] rounded-lg font-bold font-[var(--font-display)] transition-all hover:bg-white/5"
-              style={{ transform: `translateZ(10px)` }}
-            >
-              Read documentation
-            </Link>
-          </div>
-
-          <div 
-            className="text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-[0.3em]"
-            style={{ transform: `translateZ(5px)` }}
-          >
-            No Credit Card Required · Setup in &lt; 3 Minutes
-          </div>
+        <h2 className="text-[clamp(44px,7vw,110px)] font-bold leading-[0.85] mb-12 font-display text-shimmer tracking-tighter">
+          Stop debugging. <br />
+          <span>Start curing.</span>
+        </h2>
+        
+        <p className="text-neural-secondary text-lg mb-16 max-w-xl mx-auto font-medium">
+          Join 10,000+ teams building the future of autonomous software. <br />
+          The agent is ready.
+        </p>
+        
+        <div className="flex flex-wrap items-center justify-center gap-8">
+          <Link href="/signup">
+            <button className="px-12 py-5 bg-white text-black rounded-full font-bold text-lg transition-all hover:scale-110 active:scale-95 shadow-[0_20px_40px_rgba(255,255,255,0.1)] group overflow-hidden relative">
+              <div className="absolute inset-0 bg-[#0891B2] scale-0 group-hover:scale-150 transition-transform duration-700 rounded-full origin-center opacity-0 group-hover:opacity-100 mix-blend-screen" />
+              <span className="relative z-10">Deploy Agent Now</span>
+            </button>
+          </Link>
+          <Link href="/docs">
+             <button className="px-10 py-4 border border-white/20 text-white rounded-full font-bold text-lg transition-all hover:bg-white/5">
+               Read documentation
+             </button>
+          </Link>
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 };

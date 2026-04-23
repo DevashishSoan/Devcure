@@ -1,137 +1,155 @@
 "use client";
 
-import { FileDiff, Zap, Lightbulb, Shield, Activity, Settings, Lock } from "lucide-react";
-import { use3DTilt } from "@/hooks/use3DTilt";
+import React from "react";
+import { motion } from "framer-motion";
+import { 
+  Zap, 
+  Shield, 
+  Terminal as TerminalIcon, 
+  Cpu, 
+  RefreshCw, 
+  Lock 
+} from "lucide-react";
 
-const features = [
-  {
-    icon: Zap,
-    title: "Autonomous resolution",
-    tag: "Active",
-    desc: "Our agent doesn't just find bugs—it creates verified, ready-to-merge patches.",
-    color: "var(--acid)",
-    span: 1
-  },
-  {
-    icon: Lightbulb,
-    title: "Gemini-powered diagnosis",
-    tag: "Gemini Flash",
-    desc: "Advanced neural reasoning that understands context, not just syntax.",
-    color: "var(--plasma)",
-    span: 1
-  },
-  {
-    icon: Shield,
-    title: "Safety-first execution",
-    desc: "Every fix is run in a secure, isolated vVisor sandbox before you ever see it.",
-    color: "var(--ice)",
-    span: 1
-  },
-  {
-    icon: FileDiff,
-    title: "Surgical diff — not rewrites",
-    desc: "We prioritize minimal changes. The AI writes code that looks like yours, only fixed.",
-    isDiff: true,
-    span: 2
-  },
-  {
-    icon: Activity,
-    title: "Realtime dashboard",
-    tag: "Supabase Realtime",
-    desc: "Watch the AI move through your code live. Full logging of every thought process.",
-    color: "var(--acid)",
-    span: 1
-  },
-  {
-    icon: Settings,
-    title: "Deep infra integration",
-    desc: "Hooks directly into your CI/CD and Slack for seamless dev-cycle repairs.",
-    color: "var(--text-muted)",
-    span: 1
-  }
-];
-
-export const FeaturesGrid = () => {
+const CellularCard = ({ 
+  children, 
+  className = "", 
+  delay = 0 
+}: { 
+  children: React.ReactNode, 
+  className?: string, 
+  delay?: number 
+}) => {
   return (
-    <section id="features" className="section-padding bg-[var(--void)]">
-      <div className="reveal text-center mb-20 px-6">
-        <div className="flex items-center justify-center gap-4 mb-8">
-          <div className="w-5 h-[1px] bg-[var(--text-muted)]" />
-          <span className="text-[11px] font-mono text-[var(--text-muted)] uppercase tracking-[0.2em] font-bold">Comprehensive Capabilities</span>
-        </div>
-        <h2 className="text-[clamp(32px,5vw,52px)] font-bold font-[var(--font-display)] mb-6">
-          The brain your <br /> codebase deserves.
-        </h2>
-        <p className="text-[var(--text-secondary)] font-light max-w-xl mx-auto">
-          We combined the reasoning power of Gemini with a custom logic sandbox to build an engine that actually understands your intent.
-        </p>
+    <motion.div
+      initial={{ opacity: 0, filter: "blur(20px)", y: 40 }}
+      whileInView={{ opacity: 1, filter: "blur(0px)", y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 1, delay, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ scale: 1.02 }}
+      className={`cellular-cell rounded-[2rem] overflow-hidden p-10 group ${className}`}
+      style={{
+        // Simulating organic geometry with slightly different border radius on each corner
+        borderRadius: "24% 76% 70% 30% / 30% 30% 70% 70%",
+      }}
+    >
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-br from-[#0891B2]/5 to-transparent" />
+      <div className="relative z-10 h-full flex flex-col justify-between">
+        {children}
       </div>
-
-      <div className="reveal max-w-[1200px] mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {features.map((f, i) => (
-          <FeatureCard key={i} feature={f} i={i} />
-        ))}
-      </div>
-    </section>
+    </motion.div>
   );
 };
 
-const FeatureCard = ({ feature, i }: { feature: any, i: number }) => {
-  const { cardRef, style, parallaxOffset, onMouseMove, onMouseLeave } = use3DTilt({ max: 12 });
-
+export const FeaturesGrid = () => {
   return (
-    <div 
-      ref={cardRef}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      className={`glass-card p-8 group flex flex-col justify-between h-[380px] ${feature.span === 2 ? 'md:col-span-2' : ''}`}
-      style={style}
-    >
-      <div className="relative z-10" style={{ transform: `translateZ(40px) translateX(${parallaxOffset.x * 0.5}px) translateY(${parallaxOffset.y * 0.5}px)` }}>
-        <div className="flex justify-between items-start mb-10">
-          <div 
-            className="w-12 h-12 rounded-xl flex items-center justify-center border border-[var(--border-bright)] bg-white/[0.03] transition-colors group-hover:border-[rgba(255,255,255,0.2)]"
-            style={{ 
-              color: feature.color,
-              boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
-            }}
+    <section id="features" className="py-32 px-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-24">
+          <motion.h2 
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="text-[clamp(44px,6vw,84px)] font-bold tracking-tighter leading-[0.9] text-white"
           >
-            <feature.icon size={24} />
-          </div>
-          {feature.tag && (
-            <span className="text-[9px] font-mono text-[var(--text-muted)] uppercase tracking-widest border border-[var(--border)] px-2 py-1 rounded">
-              {feature.tag}
-            </span>
-          )}
+            Engineered for <br />
+            <span className="text-neural-secondary">high-stakes code.</span>
+          </motion.h2>
         </div>
 
-        <h3 className="text-xl font-bold font-[var(--font-display)] text-white mb-3">
-          {feature.title}
-        </h3>
-        <p className="text-sm font-light text-[var(--text-secondary)] leading-relaxed">
-          {feature.desc}
-        </p>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[360px]">
+          {/* Main Resolution Cell */}
+          <CellularCard className="md:col-span-8 md:row-span-2 border-glow-animate">
+            <div className="max-w-md">
+              <div className="w-12 h-12 rounded-xl bg-[#0891B2]/10 flex items-center justify-center text-[#0891B2] mb-8">
+                <Zap size={24} />
+              </div>
+              <h3 className="text-4xl font-semibold mb-4 text-white">Surgical patches.</h3>
+              <p className="text-neural-secondary text-lg leading-relaxed">
+                Our agent doesn't just suggest fixes; it reasons within a secure, logic-isolated sandbox to produce production-ready diffs.
+              </p>
+            </div>
+            
+            {/* Terminal Preview */}
+            <div className="mt-12 bg-black/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-xl">
+               <div className="flex items-center gap-1.5 px-4 py-3 bg-white/5">
+                 <div className="w-2 h-2 rounded-full bg-white/10" />
+                 <div className="w-2 h-2 rounded-full bg-white/10" />
+                 <span className="ml-2 text-[10px] font-mono text-zinc-600 uppercase tracking-widest">agent_v4.0.2</span>
+               </div>
+               <div className="p-6 font-mono text-xs text-[#0891B2]">
+                 <p>{">"} INITIALIZING REASONING_CORE...</p>
+                 <p className="opacity-60">{">"} SCANNING REPO FOR ANOMALIES...</p>
+                 <p className="text-white mt-2">{">"} RESOLVED: auth_middleware.go:42</p>
+                 <p>{">"} APPLYING NEURAL_PATCH...</p>
+               </div>
+            </div>
+          </CellularCard>
+
+          {/* Compliance Cell */}
+          <CellularCard className="md:col-span-4 md:row-span-1" delay={0.2}>
+            <div className="w-10 h-10 rounded-lg bg-[#0891B2]/10 flex items-center justify-center text-[#0891B2] mb-6">
+              <Shield size={20} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-semibold text-white mb-2">Zero-Trust.</h3>
+              <p className="text-neural-secondary text-sm leading-relaxed">
+                SOC2 compliant sandboxes for every repair cycle. Your code never leaves the perimeter.
+              </p>
+            </div>
+          </CellularCard>
+
+          {/* Speed Cell */}
+          <CellularCard className="md:col-span-4 md:row-span-1" delay={0.4}>
+            <div className="w-10 h-10 rounded-lg bg-[#0891B2]/10 flex items-center justify-center text-[#0891B2] mb-6">
+              <RefreshCw size={20} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-semibold text-white mb-2">Real-time Fix.</h3>
+              <p className="text-neural-secondary text-sm leading-relaxed">
+                From detection to verified pull request in under 4 minutes. Stop the bleed instantly.
+              </p>
+            </div>
+          </CellularCard>
+
+          {/* Infrastructure Section: Enterprise Integrity */}
+          <div className="md:col-span-12 mt-12">
+            <CellularCard className="!p-0 overflow-hidden" delay={0.6}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center p-10 md:p-16">
+                 <div className="max-w-xl">
+                    <div className="text-[10px] font-mono text-[#0891B2] uppercase tracking-[0.4em] mb-6 font-bold">Infrastructure</div>
+                    <h3 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tighter leading-tight font-display">
+                      Enterprise-grade <br />
+                      synthetic integrity.
+                    </h3>
+                    <p className="text-neural-secondary text-lg leading-relaxed">
+                      The engine trusted by high-frequency trading firms and core infrastructure teams globally. 
+                      Isolated execution pods ensure zero data leakage.
+                    </p>
+                 </div>
+
+                 {/* Constrained Terminal preview */}
+                 <div className="w-full max-w-lg ml-auto">
+                    <div className="bg-black/60 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-2xl shadow-2xl">
+                       <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/5">
+                         <div className="flex gap-1.5">
+                           <div className="w-2 h-2 rounded-full bg-white/10" />
+                           <div className="w-2 h-2 rounded-full bg-white/10" />
+                         </div>
+                         <span className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">trust_verification_node</span>
+                       </div>
+                       <div className="p-6 font-mono text-[11px] space-y-2">
+                         <p className="text-zinc-500">{"["}OK{"]"} verifying_soc2_perimeter...</p>
+                         <p className="text-zinc-500">{"["}OK{"]"} rls_policy_check_passed.</p>
+                         <p className="text-[#0891B2]">{"["}OK{"]"} pod_integrity_verified.</p>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+            </CellularCard>
+          </div>
+        </div>
       </div>
-
-      {feature.isDiff && (
-        <div 
-          className="mt-4 rounded-lg bg-[var(--void)] border border-[var(--border)] overflow-hidden font-mono text-[11px] relative z-20 pointer-events-none"
-          style={{ 
-            transform: `translateZ(60px) scale(1.05) translateX(${parallaxOffset.x * -0.3}px)`,
-            boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
-          }}
-        >
-          <div className="px-3 py-1.5 border-b border-[var(--border)] bg-white/[0.02] text-[var(--text-muted)] flex items-center gap-2">
-            <FileDiff className="w-3 h-3" />
-            <span>auth.ts — surgical update</span>
-          </div>
-          <div className="p-4 space-y-1">
-            <div className="text-[#ff5f56]">- export const authenticate = async (u: string)</div>
-            <div className="text-[#27c93f]">+ export const authenticate = async (cred: AuthCreds)</div>
-            <div className="mt-2 text-[var(--text-dim)]">// Optimized type safety via Gemini Flash</div>
-          </div>
-        </div>
-      )}
-    </div>
+    </section>
   );
 };

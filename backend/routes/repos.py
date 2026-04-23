@@ -8,6 +8,13 @@ from supabase import Client
 
 router = APIRouter(prefix="/repos", tags=["Repositories"])
 
+def _normalize_repo_url(url: str) -> str:
+    """Removes trailing .git and whitespace to ensure consistent indexing."""
+    url = url.strip()
+    if url.endswith(".git"):
+        url = url[:-4]
+    return url
+
 @router.get("/", response_model=List[dict])
 async def list_repo_configs(
     user = Depends(get_current_user),
@@ -33,6 +40,7 @@ async def create_repo_config(
     
     payload = config.dict()
     payload["user_id"] = user_id
+    payload["repo_url"] = _normalize_repo_url(payload["repo_url"])
     payload["webhook_secret"] = secrets.token_hex(32) # Generate per-repo secret
     
     try:

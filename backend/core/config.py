@@ -11,8 +11,11 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # AI Config (Placeholders - to be updated via .env)
-    MINIMAX_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
+    MINIMAX_API_KEY: Optional[str] = None
+    GEMMA_API_KEY: Optional[str] = None
+    NVIDIA_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     GITHUB_TOKEN: Optional[str] = None
     GITHUB_WEBHOOK_SECRET: Optional[str] = None
 

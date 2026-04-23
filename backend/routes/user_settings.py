@@ -18,7 +18,7 @@ async def get_user_settings(
     user_id = user.get("sub")
     
     response = supabase.table("user_profiles") \
-        .select("slack_webhook_url, notify_on_completed, notify_on_escalated, notify_via_email") \
+        .select("slack_webhook_url, notify_on_completed, notify_on_escalated, notify_via_email, agent_personality, max_repair_iterations, auto_repair_threshold, ai_provider") \
         .eq("user_id", user_id) \
         .execute()
         
@@ -29,7 +29,11 @@ async def get_user_settings(
             "slack_webhook_url": None,
             "notify_on_completed": True,
             "notify_on_escalated": True,
-            "notify_via_email": False
+            "notify_via_email": False,
+            "agent_personality": "Surgical",
+            "max_repair_iterations": 5,
+            "auto_repair_threshold": 0.7,
+            "ai_provider": "gemini"
         }
         try:
             insert_res = supabase.table("user_profiles").insert(default_profile).execute()
@@ -51,7 +55,16 @@ async def update_user_settings(
     """Updates the notification preferences for the authenticated user."""
     user_id = user.get("sub")
     
-    allowed_fields = {"slack_webhook_url", "notify_on_completed", "notify_on_escalated", "notify_via_email"}
+    allowed_fields = {
+        "slack_webhook_url", 
+        "notify_on_completed", 
+        "notify_on_escalated", 
+        "notify_via_email",
+        "agent_personality",
+        "max_repair_iterations",
+        "auto_repair_threshold",
+        "ai_provider"
+    }
     update_data = {k: v for k, v in settings_update.items() if k in allowed_fields}
     
     if not update_data:

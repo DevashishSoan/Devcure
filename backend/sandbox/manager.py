@@ -186,21 +186,17 @@ class SandboxManager:
                 except: pass
             return f"Error running command in Docker: {str(e)}"
 
-    def _run_local_command(self, sandbox_id: str, command: str, timeout: int) -> str:
+    def _run_local_command(self, sandbox_id: str, command: str, timeout: int) -> tuple[str, int]:
         """
         Executes a command in a local subprocess with security guards.
         """
         sandbox_path = os.path.abspath(os.path.join(self.base_path, sandbox_id))
         
-        # Guard 1: Use list format for subprocess and NEVER use shell=True
-        # On Windows, we try to run the command directly if it's a single executable call, 
-        # otherwise we fallback to cmd /c only if necessary.
+        # Guard 1: Use list format for subprocess
         if os.name == 'nt':
-            if ' ' not in command:
-                cmd_list = [command]
-            else:
-                # Use a safer way to call cmd /c
-                cmd_list = ["cmd", "/c", command]
+            # On Windows, we use 'cmd /c' to safely execute command strings 
+            # including those with spaces or multiple arguments.
+            cmd_list = ["cmd", "/c", command]
         else:
             cmd_list = ["/bin/sh", "-c", command]
 
@@ -211,14 +207,15 @@ class SandboxManager:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                shell=False, # Mandatory security guard
-                env=self._get_safe_env() # Mandatory security guard
+                shell=False, # Mandatory security guard: the list itself handles the command
+                env=self._get_safe_env()
             )
-            return (result.stdout + "\n" + result.stderr), result.returncode
+            output = (result.stdout or "") + "\n" + (result.stderr or "")
+            return output, result.returncode
         except subprocess.TimeoutExpired:
             raise SandboxTimeoutError(f"Local command '{command}' exceeded {timeout}s timeout.")
         except Exception as e:
-            return f"Error running local command: {str(e)}"
+            return f"Error running local command: {str(e)}", 1
 
     def _get_safe_env(self) -> Dict[str, str]:
         """

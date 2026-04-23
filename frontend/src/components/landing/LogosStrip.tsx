@@ -1,40 +1,50 @@
 "use client";
 
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+
 const companies = [
-  { name: "Stripe", color: "#635bff" },
-  { name: "Vercel", color: "#ffffff" },
-  { name: "Linear", color: "#5e6ad2" },
-  { name: "Supabase", color: "#3ecf8e" },
-  { name: "Railway", color: "#ffffff" },
-  { name: "PlanetScale", color: "#ffffff" },
-  { name: "Render", color: "#46e3b7" },
-  { name: "Fly.io", color: "#8b5cf6" },
+  { name: "Stripe" },
+  { name: "Vercel" },
+  { name: "Linear" },
+  { name: "Supabase" },
+  { name: "Railway" },
+  { name: "PlanetScale" },
+  { name: "Render" },
+  { name: "Fly.io" },
 ];
 
 export const LogosStrip = () => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <section className="border-y border-[var(--border)] py-12 overflow-hidden bg-[var(--void)]">
-      <div className="text-center mb-8">
-        <span className="text-[11px] font-mono text-[var(--text-dim)] uppercase tracking-[0.2em] font-bold">
-          Trusted by developers at
+    <section className="py-24 overflow-hidden border-y border-white/5">
+      <div className="text-center mb-16">
+        <span className="text-[11px] font-mono text-neural-secondary uppercase tracking-[0.4em] font-bold">
+          Trusted by high-stakes engineering teams
         </span>
       </div>
 
-      <div className="relative flex">
-        <div className="animate-marquee flex gap-12 items-center">
-          {/* Double the array for seamless looping */}
+      <div 
+        className="relative flex overflow-hidden"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <motion.div 
+          animate={{ x: [0, -1000] }}
+          transition={{ 
+            duration: isHovered ? 15 : 30, // Speed bump effect
+            repeat: Infinity, 
+            ease: "linear" 
+          }}
+          className="flex gap-20 items-center whitespace-nowrap px-10"
+        >
           {[...companies, ...companies].map((company, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <div 
-                className="w-3 h-3 rounded-sm opacity-60" 
-                style={{ backgroundColor: company.color }} 
-              />
-              <span className="text-[18px] font-bold font-[var(--font-display)] text-[var(--text-dim)] hover:text-[var(--text-secondary)] transition-colors cursor-default">
-                {company.name}
-              </span>
-            </div>
+            <span key={i} className="text-3xl font-bold tracking-tighter text-white/40 hover:text-white transition-opacity duration-300 cursor-default font-display">
+              {company.name}
+            </span>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

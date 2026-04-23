@@ -61,14 +61,14 @@ export default function OnboardingChecklist() {
     if (data && data.length > 0 && data[0].pr_url) {
       window.open(data[0].pr_url, "_blank");
     } else {
-      toast.info("No autonomous PRs yet. Trigger a run on a failing repo first.");
+      toast.info("No PRs available for review yet.");
     }
   };
 
   const steps = [
     {
       id: "github",
-      title: "Connect your GitHub account",
+      title: "Identity Gateway",
       completed: stepState.github,
       action: "Connect GitHub",
       onClick: handleGithubConnect,
@@ -76,7 +76,7 @@ export default function OnboardingChecklist() {
     },
     {
       id: "repo",
-      title: "Add your first repository",
+      title: "Neural Mapping",
       completed: stepState.repo,
       action: "Add Repository",
       onClick: () => document.getElementById("add-repo-modal-trigger")?.click(),
@@ -84,17 +84,17 @@ export default function OnboardingChecklist() {
     },
     {
       id: "run",
-      title: "Trigger your first run",
+      title: "Execution Cycle",
       completed: stepState.run,
-      action: "View Guide",
+      action: "Trigger Run",
       onClick: () => setShowGuide(true),
       icon: PlayCircle
     },
     {
       id: "pr",
-      title: "Review your autonomous PR",
+      title: "Final Resolution",
       completed: stepState.pr,
-      action: "Review Fixes",
+      action: "Review Patch",
       onClick: handleReviewPR,
       icon: GitPullRequest
     }
@@ -109,34 +109,34 @@ export default function OnboardingChecklist() {
   };
 
   return (
-    <div className={`relative mb-8 rounded-2xl border border-white/10 bg-[#080b12]/60 backdrop-blur-xl transition-all duration-500 overflow-hidden ${isCollapsed ? 'p-4' : 'p-8'}`}>
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-acid via-plasma to-ice opacity-30" />
+    <div className={`relative mb-10 rounded-2xl border border-white/[0.05] bg-zinc-900/40 backdrop-blur-md transition-all duration-500 overflow-hidden ${isCollapsed ? 'p-4' : 'p-8'}`}>
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 opacity-40" />
       
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-acid flex items-center gap-2 mb-1">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-acid opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-acid"></span>
-            </span>
-            Activation Protocol
-          </h2>
+          <div className="flex items-center gap-2 mb-1.5">
+             <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400"></span>
+              </span>
+             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-400">Activation Protocol</h2>
+          </div>
           {!isCollapsed && (
-            <p className="text-xs text-slate-500 mt-2">Complete these steps to unlock full autonomous QA capabilities.</p>
+            <p className="text-[12px] text-zinc-500 font-medium">Complete these steps to unlock full autonomous QA capabilities.</p>
           )}
         </div>
         
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 hover:bg-white/5 rounded-lg text-slate-500 transition-colors"
+            className="p-1.5 hover:bg-white/[0.03] rounded-lg text-zinc-600 transition-colors"
           >
             {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
           </button>
           {(allComplete && !isCollapsed) && (
             <button 
               onClick={handleDismiss}
-              className="p-2 hover:bg-white/5 rounded-lg text-slate-500 transition-colors"
+              className="p-1.5 hover:bg-white/[0.03] rounded-lg text-zinc-600 transition-colors"
             >
               <X size={18} />
             </button>
@@ -145,49 +145,42 @@ export default function OnboardingChecklist() {
       </div>
 
       {!isCollapsed && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
           {steps.map((step) => (
             <div 
               key={step.id}
-              className={`group flex flex-col gap-4 p-5 rounded-xl border transition-all duration-300 ${
+              className={`flex flex-col gap-5 p-5 rounded-xl border transition-all duration-300 ${
                 step.completed 
-                  ? "bg-acid/5 border-acid/20 ring-1 ring-acid/5" 
-                  : "bg-void/40 border-white/5 hover:border-white/10"
+                  ? "bg-sky-500/5 border-sky-400/20" 
+                  : "bg-zinc-900/50 border-white/[0.05] hover:border-white/[0.1]"
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className={`p-2 rounded-lg ${step.completed ? "bg-acid/10 text-acid" : "bg-white/5 text-slate-500"}`}>
+                <div className={`p-2 rounded-lg ${step.completed ? "bg-sky-400/10 text-sky-400" : "bg-zinc-800 text-zinc-600"}`}>
                   <step.icon size={18} />
                 </div>
                 {step.completed ? (
-                  <div className="flex items-center gap-1.5 bg-acid/20 text-acid text-[9px] font-black uppercase tracking-tighter px-2 py-1 rounded-full">
-                    <CheckCircle2 size={10} />
-                    Done
-                  </div>
+                  <CheckCircle2 size={14} className="text-emerald-400" />
                 ) : (
-                  <div className="h-5 w-5 rounded-full border border-white/10 flex items-center justify-center">
-                    <div className="h-1.5 w-1.5 rounded-full bg-white/10" />
-                  </div>
+                  <Circle size={14} className="text-zinc-800" />
                 )}
               </div>
               
-              <div className="space-y-1">
-                <h3 className={`text-[11px] font-bold leading-tight ${step.completed ? "text-white" : "text-slate-400"}`}>
-                  {step.title}
-                </h3>
-              </div>
+              <h3 className={`text-[12px] font-semibold tracking-tight ${step.completed ? "text-zinc-100" : "text-zinc-400"}`}>
+                {step.title}
+              </h3>
 
               {!step.completed ? (
                 <button 
                   onClick={step.onClick}
-                  className="group/btn mt-auto py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-white transition-all flex items-center justify-center gap-2"
+                  className="mt-auto py-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-[10px] font-bold uppercase tracking-wider text-white transition-all flex items-center justify-center gap-2 border border-white/[0.02]"
                 >
                   {step.action}
-                  <ExternalLink size={10} className="text-slate-500 group-hover/btn:text-acid group-hover/btn:translate-x-0.5 transition-all" />
+                  <ExternalLink size={12} className="text-zinc-600" />
                 </button>
               ) : (
-                <div className="mt-auto h-9 flex items-center">
-                   <div className="h-px w-full bg-acid/10" />
+                <div className="mt-auto h-9 flex items-center justify-center">
+                   <span className="text-[9px] font-bold text-emerald-500/60 uppercase tracking-widest italic">Synchronized</span>
                 </div>
               )}
             </div>
@@ -197,75 +190,48 @@ export default function OnboardingChecklist() {
 
       {/* Guide Modal */}
       {showGuide && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-void/90 backdrop-blur-xl animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-zinc-950/90 backdrop-blur-lg animate-in fade-in duration-300">
           <div 
-            className="relative w-full max-w-xl bg-[#0c1017] border border-white/10 rounded-2xl shadow-2xl shadow-acid/5 animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]"
+            className="relative w-full max-w-lg bg-[#18181b] border border-white/[0.05] rounded-3xl shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh] overflow-hidden"
           >
-            {/* Header - Fixed */}
-            <div className="p-8 pb-0 shrink-0">
+            <div className="p-8 pb-0 flex items-center justify-between">
+              <div>
+                <h2 className="text-[10px] font-bold uppercase tracking-widest text-sky-400 mb-2">Protocol Guide</h2>
+                <h3 className="text-xl font-bold text-white tracking-tight font-display">Initialize First Cycle</h3>
+              </div>
               <button 
                 onClick={() => setShowGuide(false)}
-                className="absolute top-6 right-6 p-2 hover:bg-white/5 rounded-lg text-slate-500 transition-colors z-10"
+                className="p-2 hover:bg-white/[0.03] rounded-full text-zinc-600 transition-colors"
               >
                 <X size={20} />
               </button>
-
-              <div className="mb-6">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-acid mb-2">Activation Guide</h2>
-                <h3 className="text-2xl font-bold text-white tracking-tight">⚡ Trigger Your First Run</h3>
-              </div>
             </div>
 
-            {/* Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
-              <div className="space-y-8 text-sm text-slate-400">
-                <p className="text-slate-300 leading-relaxed">
-                  Follow these steps to activate DevCure's autonomous repair loop. This process typically takes less than 60 seconds.
-                </p>
-                
-                <div className="space-y-6">
-                  <div className="flex gap-5 group">
-                    <div className="flex-none h-8 w-8 rounded-xl bg-acid/10 border border-acid/20 flex items-center justify-center text-[11px] font-black text-acid group-hover:bg-acid group-hover:text-void transition-all duration-300">1</div>
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
+              <div className="space-y-6">
+                {[
+                  { n: "1", t: "Link Repository", d: "Connect your target codebase in the Repositories tab." },
+                  { n: "2", t: "Simulate Failure", d: "Add a deliberate 'Broken' test to your codebase to trigger detection." },
+                  { n: "3", t: "Push to Main", d: "DevCure will intercept the push and begin the repair cycle." },
+                  { n: "4", t: "Monitor Solves", d: "Watch the AI draft surgical patches in the Autonomous Runs tab." }
+                ].map((item) => (
+                  <div key={item.n} className="flex gap-4 group">
+                    <div className="flex-none h-7 w-7 rounded-lg bg-zinc-900 border border-white/[0.05] flex items-center justify-center text-[11px] font-bold text-sky-400 group-hover:bg-sky-500 group-hover:text-zinc-950 transition-all">
+                      {item.n}
+                    </div>
                     <div>
-                      <p className="text-white font-bold mb-1.5 text-base tracking-tight">Connect a Repository</p>
-                      <p className="leading-relaxed">Navigate to the <span className="text-slate-200 font-medium italic">Repositories</span> tab and register the target repo. Ensure the webhook secret matches your environment config.</p>
+                      <p className="text-sm font-semibold text-zinc-100 mb-1 leading-none">{item.t}</p>
+                      <p className="text-[12px] text-zinc-500 leading-relaxed font-medium">{item.d}</p>
                     </div>
                   </div>
-
-                  <div className="flex gap-5 group">
-                    <div className="flex-none h-8 w-8 rounded-xl bg-acid/10 border border-acid/20 flex items-center justify-center text-[11px] font-black text-acid group-hover:bg-acid group-hover:text-void transition-all duration-300">2</div>
-                    <div>
-                      <p className="text-white font-bold mb-1.5 text-base tracking-tight">Stage a Failing Test</p>
-                      <p className="leading-relaxed">In your local repository, create a test that is guaranteed to fail. This is necessary for the AI to detect a baseline "broken" state.</p>
-                      <div className="mt-3 p-3 rounded-lg bg-void/50 border border-white/5 font-mono text-[10px] text-acid/80">
-                        def test_failure(): assert 1 == 2
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-5 group">
-                    <div className="flex-none h-8 w-8 rounded-xl bg-acid/10 border border-acid/20 flex items-center justify-center text-[11px] font-black text-acid group-hover:bg-acid group-hover:text-void transition-all duration-300">3</div>
-                    <div>
-                      <p className="text-white font-bold mb-1.5 text-base tracking-tight">Push to GitHub</p>
-                      <p className="leading-relaxed">Commit and push your change. DevCure will immediately intercept the push and begin the repair cycle.</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-5 group">
-                    <div className="flex-none h-8 w-8 rounded-xl bg-acid/10 border border-acid/20 flex items-center justify-center text-[11px] font-black text-acid group-hover:bg-acid group-hover:text-void transition-all duration-300">4</div>
-                    <div>
-                      <p className="text-white font-bold mb-1.5 text-base tracking-tight">Monitor Resolution</p>
-                      <p className="leading-relaxed">Switch to the <span className="text-slate-200 font-medium italic">Autonomous Runs</span> tab. You'll see the AI live-diagnosing the issue and drafting a surgical patch.</p>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
 
               <button 
                 onClick={() => setShowGuide(false)}
-                className="w-full mt-8 py-4 rounded-xl bg-acid text-void text-xs font-black uppercase tracking-[0.2em] hover:bg-white hover:text-void hover:scale-[1.02] active:scale-95 transition-all duration-300 shadow-xl shadow-acid/10"
+                className="w-full py-3.5 rounded-xl bg-sky-500 text-zinc-950 text-xs font-bold hover:bg-sky-400 transition-all shadow-lg shadow-sky-500/10 uppercase tracking-widest"
               >
-                Initialize Protocol
+                Enter Neural Control
               </button>
             </div>
           </div>
