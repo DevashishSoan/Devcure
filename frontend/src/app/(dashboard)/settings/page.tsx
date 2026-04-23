@@ -27,6 +27,10 @@ export default function SettingsPage() {
     notify_on_completed: true,
     notify_on_escalated: true,
     notify_via_email: false,
+    ai_provider: "gemini",
+    agent_personality: "Surgical",
+    auto_repair_threshold: 0.7,
+    max_repair_iterations: 5,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
