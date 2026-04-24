@@ -13,18 +13,18 @@
 }
 
 :root {
-  /* Apple Pro Hardware Design System */
-  --bg-main: #000000;       /* Pure Void */
+  /* Neural Fluidity Design System */
+  --bg-main: #020617;       /* Deep Slate Substrate */
   --bg-surface: rgba(255, 255, 255, 0.02); /* Glass Base */
   
-  --primary: #00FF66;       /* Electric Neon Green */
-  --primary-glow: rgba(0, 255, 102, 0.4);
+  --primary: #0891B2;       /* Neural Cyan */
+  --primary-glow: rgba(8, 145, 178, 0.4);
   
-  --acid: #00FF66;          /* LED Green */
-  --acid-dim: rgba(0, 255, 102, 0.05);
-  --void: #000000;
-  --plasma: #00cc52;        /* Hardware Green */
-  --ice: #86868b;           /* Apple Muted Text */
+  --acid: #0891B2;          /* Primary Accent */
+  --acid-dim: rgba(8, 145, 178, 0.05);
+  --void: #020617;
+  --plasma: #086d87;        /* Hardware Cyan */
+  --ice: #94A3B8;           /* Slate 400 */
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display), "Space Grotesk", sans-serif;
   --font-mono: var(--font-mono), "Geist Mono", monospace;

@@ -15,6 +15,7 @@ import {
 import { signOut } from "@/lib/api";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -31,21 +32,19 @@ export default function Sidebar() {
   if (isAuthPage || isLandingPage) return null;
 
   return (
-    <aside className="w-64 h-full bg-black border-r border-white/[0.05] flex flex-col z-50">
+    <aside className="w-64 h-full bg-[#020617] border-r border-white/5 flex flex-col z-50 relative">
       {/* Brand Header */}
-      <div className="p-7 mb-4">
+      <div className="p-8 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-lg">
-            <Shield className="text-black" size={16} strokeWidth={2.5} />
-          </div>
-          <span className="text-base font-bold tracking-tight text-white">DevCure</span>
+          <img src="/logo.png" alt="DevCure" className="w-8 h-8 object-contain" />
+          <span className="text-lg font-bold tracking-tighter text-white font-display">DevCure</span>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 space-y-1">
-        <div className="px-3 mb-4 flex items-center justify-between">
-           <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Platform</span>
+      <nav className="flex-1 px-4 space-y-2">
+        <div className="px-4 mb-6">
+           <span className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.4em]">Core_Protocols</span>
         </div>
         
         {navItems.map((item) => {
@@ -54,47 +53,60 @@ export default function Sidebar() {
             <Link
               key={item.id}
               href={item.href}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+              className={`flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
                 isActive
-                  ? "bg-white/[0.03] text-white border border-white/[0.04]"
-                  : "text-zinc-500 hover:text-white hover:bg-white/[0.02]"
+                  ? "text-[#0891B2]"
+                  : "text-zinc-500 hover:text-white"
               }`}
             >
-              <div className="flex items-center gap-3">
+              {isActive && (
+                <motion.div 
+                  layoutId="sidebar-active"
+                  className="absolute inset-0 bg-gradient-to-r from-[#0891B2]/10 to-transparent"
+                />
+              )}
+              
+              <div className="flex items-center gap-4 relative z-10">
                 <item.icon
                   size={18}
-                  strokeWidth={isActive ? 2.5 : 2}
-                  className={isActive ? "text-[var(--acid)]" : "text-zinc-600 group-hover:text-zinc-400"}
+                  className={isActive ? "text-[#0891B2]" : "text-zinc-600 group-hover:text-zinc-400"}
                 />
-                <span className="text-sm font-medium tracking-tight truncate">{item.label}</span>
+                <span className={`text-[13px] font-bold tracking-tight font-display ${isActive ? 'text-shimmer' : ''}`}>
+                  {item.label}
+                </span>
               </div>
+              
               {isActive && (
-                <div className="w-1 h-4 rounded-full bg-[var(--acid)] shadow-[0_0_8px_rgba(63,185,80,0.5)]" />
+                <div className="w-1 h-4 rounded-full bg-[#0891B2] shadow-[0_0_12px_#0891B2] relative z-10" />
               )}
             </Link>
           );
         })}
       </nav>
 
-      {/* Footer Info / User Actions */}
-      <div className="p-6 mt-auto border-t border-white/[0.03]">
-        <div className="bg-white/[0.03] rounded-2xl p-4 border border-white/[0.03] mb-4 group hover:bg-white/[0.05] transition-all cursor-pointer overflow-hidden relative">
-           <div className="absolute top-0 right-0 p-2 text-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity">
-              <ChevronRight size={14} />
+      {/* Footer Status */}
+      <div className="p-6 mt-auto">
+        <div className="bg-zinc-950/40 backdrop-blur-xl rounded-[24px] p-5 border border-white/5 mb-6 group relative overflow-hidden">
+           <div className="flex items-center justify-between mb-3">
+             <p className="text-[10px] font-black text-[#0891B2] uppercase tracking-widest">Neural Load</p>
+             <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
            </div>
-           <p className="text-[9px] font-bold text-[var(--acid)] uppercase tracking-widest mb-1.5">System Status</p>
-           <p className="text-[11px] font-bold text-zinc-300">Protocol 12-Alpha</p>
-           <div className="mt-3 h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
-              <div className="h-full w-[65%] bg-[var(--acid)] shadow-[0_0_8px_rgba(63,185,80,0.4)]" />
+           <p className="text-[12px] font-bold text-zinc-300 font-mono tracking-tight">System_Active</p>
+           <div className="mt-4 h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: "82%" }}
+                className="h-full bg-[#0891B2] shadow-[0_0_12px_#0891B2]" 
+              />
            </div>
         </div>
 
         <button 
           onClick={() => signOut()}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/5 transition-all text-sm font-medium group"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-zinc-600 hover:text-white hover:bg-rose-500/5 hover:text-rose-400 transition-all text-xs font-bold font-display group border border-transparent hover:border-rose-500/10"
         >
-          <LogOut size={16} className="text-zinc-600 group-hover:text-rose-400" />
-          <span>Termination</span>
+          <LogOut size={16} className="transition-transform group-hover:-translate-x-1" />
+          <span>TERMINATION</span>
         </button>
       </div>
     </aside>

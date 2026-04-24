@@ -6,6 +6,7 @@ import { Hero } from "@/components/landing/Hero";
 import { LogosStrip } from "@/components/landing/LogosStrip";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { FeaturesGrid } from "@/components/landing/FeaturesGrid";
+import { CompetitorTable } from "@/components/landing/DemoSection";
 import { Metrics } from "@/components/landing/Metrics";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { Pricing } from "@/components/landing/Pricing";
@@ -46,6 +47,7 @@ export default function LandingPage() {
       <LogosStrip />
       <HowItWorks />
       <FeaturesGrid />
+      <CompetitorTable />
       <Metrics />
       <Testimonials />
       <Pricing />

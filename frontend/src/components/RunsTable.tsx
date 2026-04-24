@@ -59,92 +59,93 @@ export default function RunsTable({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Terminal size={18} className="text-sky-400" />
-          <h2 className="text-[13px] font-bold text-white uppercase tracking-widest">Autonomous Cycles</h2>
+        <div className="flex items-center gap-3">
+          <Terminal size={18} className="text-[#0891B2]" />
+          <h2 className="text-[12px] font-black text-white uppercase tracking-[0.4em] font-display">Autonomous_Cycles</h2>
         </div>
         <Link
           href="/runs"
-          className="text-[11px] font-semibold text-zinc-500 hover:text-white flex items-center gap-1.5 transition-all group"
+          className="text-[11px] font-black text-zinc-500 hover:text-white flex items-center gap-2 transition-all group font-display tracking-widest"
         >
-          View Full Archive
+          VIEW_ARCHIVE
           <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
         </Link>
       </div>
 
-      <div className="rounded-2xl border border-white/[0.05] bg-[#18181b]/40 backdrop-blur-md overflow-hidden">
+      <div className="rounded-[32px] border border-white/5 bg-zinc-950/40 backdrop-blur-2xl overflow-hidden shadow-2xl">
         {runs.length === 0 && !isDemo ? (
-          <div className="p-20 text-center flex flex-col items-center justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-zinc-900 flex items-center justify-center border border-white/[0.05] mb-6">
-              <Activity size={24} className="text-zinc-700" />
+          <div className="p-24 text-center flex flex-col items-center justify-center">
+            <div className="w-20 h-20 rounded-3xl bg-zinc-900/50 flex items-center justify-center border border-white/5 mb-8 group-hover:border-[#0891B2]/30 transition-all">
+              <Activity size={32} className="text-zinc-700" />
             </div>
-            <h3 className="text-sm font-semibold text-zinc-300 mb-2">No active neural links</h3>
-            <p className="text-xs text-zinc-500 max-w-xs mx-auto leading-relaxed mb-8">
-              Connect your first repository to begin autonomous failure resolution.
+            <h3 className="text-xl font-bold text-white mb-3 font-display">No active neural links</h3>
+            <p className="text-sm text-zinc-500 max-w-xs mx-auto leading-relaxed mb-10 font-medium">
+              Initialize your first autonomous probe to begin codebase infrastructure monitoring.
             </p>
-            <div className="flex gap-3">
-              <button 
-                onClick={handleManualTrigger}
-                disabled={isTriggering}
-                className="px-6 py-2.5 rounded-lg bg-sky-500 text-zinc-950 text-xs font-bold hover:bg-sky-400 transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-sky-500/10"
-              >
-                {isTriggering ? <Loader2 className="animate-spin" size={14} /> : <Play size={14} fill="currentColor" />}
-                Initialize First Cycle
-              </button>
-            </div>
+            <button 
+              onClick={handleManualTrigger}
+              disabled={isTriggering}
+              className="px-8 py-4 rounded-full bg-[#0891B2] text-black text-xs font-black uppercase tracking-[0.2em] hover:shadow-[0_0_40px_rgba(8,145,178,0.3)] transition-all disabled:opacity-50 flex items-center gap-3"
+            >
+              {isTriggering ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} fill="currentColor" />}
+              Initialize Cycle_0
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
+            <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-                <tr className="border-b border-white/[0.05] bg-white/[0.01]">
-                  <th className="p-4 pl-6 text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Repository</th>
-                  <th className="p-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Protocol</th>
-                  <th className="p-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Status</th>
-                  <th className="p-4 text-[11px] font-semibold text-zinc-500 uppercase tracking-widest text-center">MTTR</th>
-                  <th className="p-4 pr-6 text-[11px] font-semibold text-zinc-500 uppercase tracking-widest text-right">Timestamp</th>
+                <tr className="border-b border-white/5 bg-white/[0.02]">
+                  <th className="p-6 pl-8 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display">Repository</th>
+                  <th className="p-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display">Protocol</th>
+                  <th className="p-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display">Status</th>
+                  <th className="p-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display text-center">MTTR</th>
+                  <th className="p-6 pr-8 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display text-right">Manifest</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-white/5">
                 {(runs.length === 0 && isDemo ? [
                   { id: 'R-7721', repo: 'web-gateway', branch: 'main', run_type: 'PUSH', status: 'completed', mttr_seconds: 245, created_at: new Date(Date.now() - 3600000).toISOString() },
                   { id: 'R-7722', repo: 'auth-worker', branch: 'stable', run_type: 'SCAN', status: 'completed', mttr_seconds: 182, created_at: new Date(Date.now() - 7200000).toISOString() },
                 ] : runs).map((run: any) => (
                   <tr
                     key={run.id}
-                    className="hover:bg-zinc-900/30 transition-colors cursor-pointer group"
+                    className={`hover:bg-white/[0.04] transition-all cursor-pointer group relative ${
+                      run.status === 'escalated' ? 'bg-amber-500/[0.03] border-l-2 border-l-amber-500/50' : ''
+                    }`}
                     onClick={() => onSelectRun && onSelectRun(run)}
                   >
-                    <td className="p-4 pl-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-white/[0.05] flex items-center justify-center group-hover:border-sky-500/30 transition-all">
-                          <FolderGit2 size={16} className="text-zinc-500 group-hover:text-sky-400" />
+                    <td className="p-6 pl-8">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center group-hover:border-[#0891B2]/40 transition-all relative overflow-hidden">
+                          <FolderGit2 size={18} className="text-zinc-600 group-hover:text-[#0891B2] relative z-10 transition-colors" />
+                          <div className="absolute inset-0 bg-[#0891B2]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-zinc-100">{run.repo}</span>
-                          <span className="text-[10px] text-zinc-600 flex items-center gap-1">
+                          <span className="text-[13px] font-bold text-zinc-100 font-display tracking-tight">{run.repo}</span>
+                          <span className="text-[10px] text-zinc-600 flex items-center gap-1 font-mono">
                             <GitBranch size={10} /> {run.branch}
                           </span>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <span className="text-[10px] font-bold text-zinc-400 px-2 py-0.5 rounded bg-zinc-800/50 border border-white/[0.05]">
+                    <td className="p-6">
+                      <span className="text-[10px] font-black text-[#0891B2] px-2 py-1 rounded-lg bg-[#0891B2]/10 border border-[#0891B2]/20 font-mono tracking-tighter">
                         {run.run_type}
                       </span>
                     </td>
-                    <td className="p-4">
+                    <td className="p-6">
                       <StatusBadge status={run.status} />
                     </td>
-                    <td className="p-4 text-center">
-                      <span className="text-xs font-mono text-zinc-500">{formatMTTR(run.mttr_seconds)}</span>
+                    <td className="p-6 text-center">
+                      <span className="text-xs font-bold font-mono text-zinc-400">{formatMTTR(run.mttr_seconds)}</span>
                     </td>
-                    <td className="p-4 pr-6 text-right">
+                    <td className="p-6 pr-8 text-right">
                       <div className="flex flex-col items-end">
-                        <span className="text-xs font-medium text-zinc-400">{formatTime(run.created_at)}</span>
-                        <span className="text-[9px] font-medium text-zinc-600 uppercase tracking-tighter">ID: {run.id}</span>
+                        <span className="text-xs font-bold text-zinc-300 font-mono">{formatTime(run.created_at)}</span>
+                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">ID:{run.id}</span>
                       </div>
                     </td>
                   </tr>
@@ -160,23 +161,23 @@ export default function RunsTable({
 
 function StatusBadge({ status }: { status: string }) {
   const configs: Record<string, any> = {
-    completed: { color: "text-emerald-400", label: "Fixed", dot: "bg-emerald-500" },
-    escalated: { color: "text-amber-400", label: "Review", dot: "bg-amber-500" },
-    failed: { color: "text-rose-400", label: "Aborted", dot: "bg-rose-500" },
-    running: { color: "text-sky-400", label: "Solving", dot: "bg-sky-500", pulse: true },
-    queued: { color: "text-zinc-500", label: "Pending", dot: "bg-zinc-600" },
+    completed: { color: "text-emerald-500", label: "RESOLVED", dot: "bg-emerald-500", shadow: "shadow-[0_0_10px_#10b981]", bg: "bg-emerald-500/5" },
+    escalated: { color: "text-amber-500", label: "NEEDS REVIEW", dot: "bg-amber-500", shadow: "shadow-[0_0_12px_#f59e0b]", bg: "bg-amber-500/10", pulse: true },
+    failed: { color: "text-rose-500", label: "ABORTED", dot: "bg-rose-500", shadow: "shadow-[0_0_8px_#f43f5e]", bg: "bg-rose-500/5" },
+    running: { color: "text-[#0891B2]", label: "EXECUTING", dot: "bg-[#0891B2]", shadow: "shadow-[0_0_10px_#0891B2]", bg: "bg-[#0891B2]/5", pulse: true },
+    queued: { color: "text-zinc-500", label: "STAGING", dot: "bg-zinc-600", shadow: "", bg: "bg-zinc-900/50" },
   };
   const config = configs[status] || configs.queued;
 
   return (
-    <div className={`flex items-center gap-2 ${config.color}`}>
-      <div className="relative flex h-1.5 w-1.5">
+    <div className={`inline-flex items-center gap-2.5 px-3 py-1 rounded-full border border-current/10 ${config.bg} ${config.color}`}>
+      <div className="relative flex h-2 w-2">
         {config.pulse && (
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-40"></span>
         )}
-        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${config.dot}`}></span>
+        <span className={`relative inline-flex rounded-full h-2 w-2 ${config.dot} ${config.shadow}`}></span>
       </div>
-      <span className="text-[11px] font-semibold uppercase tracking-widest">{config.label}</span>
+      <span className="text-[9px] font-black uppercase tracking-[0.2em] font-display">{config.label}</span>
     </div>
   );
 }

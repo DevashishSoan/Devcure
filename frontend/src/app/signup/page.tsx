@@ -68,7 +68,7 @@ export default function SignupPage() {
       <div className="hidden md:flex md:w-5/12 p-12 lg:p-20 flex-col justify-between relative overflow-hidden bg-[var(--surface-1)] border-r border-[var(--border)]">
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-3 mb-16">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--acid)] to-[var(--plasma)] flex items-center justify-center font-bold text-[var(--void)] text-sm shadow-[0_0_20px_rgba(0,255,136,0.2)]">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0891B2] to-[#086d87] flex items-center justify-center font-bold text-black text-sm shadow-[0_0_20px_rgba(8,145,178,0.3)]">
               DC
             </div>
             <span className="text-xl font-bold font-[var(--font-display)] text-white tracking-tight">DevCure</span>
@@ -76,7 +76,7 @@ export default function SignupPage() {
 
           <h2 className="text-4xl lg:text-5xl font-bold font-[var(--font-display)] text-white tracking-tight mb-8 leading-[1.1]">
             Automate the <br /> 
-            <span className="text-[var(--acid)]">boring parts.</span>
+            <span className="text-[#0891B2]">boring parts.</span>
           </h2>
 
           <p className="text-[var(--text-secondary)] font-light text-lg mb-12 max-w-sm">
@@ -99,7 +99,7 @@ export default function SignupPage() {
               <div className="w-2.5 h-2.5 rounded-full bg-green-500/40" />
             </div>
             <div className="font-mono text-[11px] space-y-1.5 opacity-80">
-              <div className="text-[var(--acid)]">➜ Establishing link with infra...</div>
+              <div className="text-[#0891B2]">➜ Establishing link with infra...</div>
               <div className="text-[var(--text-muted)]">Detected: Next.js + Supabase stack</div>
               <div className="text-white">Analyzing 14 critical test failures...</div>
               <div className="text-[var(--plasma-bright)]">Generated 3 valid patches. Deploying to vVisor.</div>
@@ -168,7 +168,7 @@ export default function SignupPage() {
             <button 
               type="submit"
               disabled={isLoading}
-              className="w-full bg-transparent border border-[var(--acid)] text-[var(--acid)] hover:bg-[var(--acid-dim)] font-bold py-4 rounded-lg transition-all text-xs uppercase tracking-widest mt-2 h-[52px] disabled:opacity-50"
+              className="w-full bg-[#0891B2] text-black font-bold py-4 rounded-lg transition-all text-xs uppercase tracking-widest mt-2 h-[52px] disabled:opacity-50 hover:bg-[#0ea5e9] shadow-[0_10px_30px_rgba(8,145,178,0.2)]"
             >
               {isLoading ? <Loader2 className="animate-spin mx-auto" size={18} /> : "Deploy Account"}
             </button>

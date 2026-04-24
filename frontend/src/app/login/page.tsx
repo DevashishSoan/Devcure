@@ -130,7 +130,7 @@ export default function LoginPage() {
             Establish Session
           </h1>
           <div className="flex items-center gap-2 text-[var(--text-muted)] text-[9px] uppercase tracking-[0.4em] font-black italic">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--acid)] animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0891B2] animate-pulse shadow-[0_0_8px_#0891B2]" />
             PROTOCOL_AUTHORIZED
           </div>
         </div>
@@ -182,10 +182,10 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full relative group h-[60px] overflow-hidden rounded-xl font-bold font-[var(--font-display)] text-sm uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-[0_20px_40px_-15px_rgba(0,255,136,0.4)]"
+            className="w-full relative group h-[60px] overflow-hidden rounded-xl font-bold font-[var(--font-display)] text-sm uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 shadow-[0_20px_40px_-15px_rgba(8,145,178,0.3)]"
           >
-            <div className="absolute inset-0 bg-[var(--acid)] group-hover:bg-[#12ff95] transition-colors" />
-            <div className="relative text-[var(--void)] flex items-center justify-center gap-2">
+            <div className="absolute inset-0 bg-[#0891B2] group-hover:bg-[#0ea5e9] transition-colors" />
+            <div className="relative text-black flex items-center justify-center gap-2">
               {loading ? <Loader2 className="animate-spin" size={18} /> : (
                 <>
                   <ShieldCheck size={18} />

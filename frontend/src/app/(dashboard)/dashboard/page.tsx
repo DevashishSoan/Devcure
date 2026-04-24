@@ -1,34 +1,40 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
   Plus,
   RefreshCw,
-  Bell,
   ChevronRight,
   TrendingUp,
   Cpu,
-  Clock,
   Terminal,
   Shield,
   Zap,
   Search,
   CheckCircle2,
+  Lock,
+  Radio,
 } from "lucide-react";
-import { supabase } from "@/lib/api";
 import { useStats } from "@/hooks/useStats";
 import { useRuns } from "@/hooks/useRuns";
 import { useInsights } from "@/hooks/useInsights";
 import { formatTime, formatMTTR } from "@/lib/utils";
 import AIStrategyModal from "@/components/AIStrategyModal";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
+import StatsGrid from "@/components/StatsGrid";
+import { MagneticCard } from "@/components/landing/MagneticCard";
+import RunsTable from "@/components/RunsTable";
+import RunDetailModal from "@/components/RunDetailModal";
+
 
 export default function Dashboard() {
   const { runs, isLoading: runsLoading } = useRuns(10);
   const { stats, isLoading: statsLoading } = useStats();
   const insights = useInsights(runs);
   const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [selectedRun, setSelectedRun] = useState<any | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -38,178 +44,215 @@ export default function Dashboard() {
   if (!mounted) return null;
 
   return (
-    <div className="h-full flex flex-col bg-black relative overflow-hidden">
+    <div className="h-full flex flex-col bg-transparent relative">
       
       {/* Glass Header */}
-      <header className="h-16 px-8 flex items-center justify-between border-b border-white/[0.05] bg-black/40 backdrop-blur-2xl z-20 shrink-0">
-        <div className="flex items-center gap-4 text-xs font-medium">
-           <span className="text-zinc-500">Platform</span>
+      <header className="h-20 px-10 flex items-center justify-between border-b border-white/5 bg-zinc-950/40 backdrop-blur-xl z-20 shrink-0">
+        <div className="flex items-center gap-4 text-[11px] font-black uppercase tracking-[0.3em]">
+           <span className="text-zinc-600">Protocol</span>
            <ChevronRight size={14} className="text-zinc-800" />
-           <span className="text-white">Dashboard</span>
+           <span className="text-[#0891B2]">Neural_Dashboard</span>
         </div>
         
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-8">
            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-indigo-400 transition-colors" size={14} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-[#0891B2] transition-colors" size={14} />
               <input 
                 type="text" 
-                placeholder="Global Search..." 
-                className="bg-white/[0.03] border border-white/[0.05] rounded-lg py-1.5 pl-9 pr-4 text-[11px] text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/30 transition-all w-48"
+                placeholder="Global Probe Search..." 
+                className="bg-white/5 border border-white/10 rounded-full py-2.5 pl-11 pr-6 text-[12px] text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-[#0891B2]/40 transition-all w-64 backdrop-blur-md"
               />
            </div>
            
-           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--acid-dim)] border border-[var(--acid)]/10">
-              <div className="w-1.5 h-1.5 rounded-full bg-[var(--acid)] shadow-[0_0_8px_rgba(63,185,80,0.5)]" />
-              <span className="text-[10px] font-bold text-[var(--acid)] uppercase tracking-widest">Active Link</span>
-           </div>
-           
-           <div className="w-8 h-8 rounded-full bg-zinc-900 border border-white/[0.05] flex items-center justify-center">
-              <span className="text-[10px] font-bold text-zinc-400">DS</span>
+           <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 pr-4 border-r border-white/5">
+                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
+                 <span className="text-[10px] font-black text-white uppercase tracking-widest">Devashish S.</span>
+              </div>
+              <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center font-bold text-xs text-[#0891B2]">
+                 DS
+              </div>
            </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
-        <div className="max-w-7xl mx-auto space-y-12">
+      <div className="flex-1 overflow-y-auto p-10 custom-scrollbar relative">
+        <div className="max-w-[1600px] mx-auto space-y-10">
            
-           {/* Section 1: Stats Grid (Premium Monochrome) */}
-           <div className="bg-[var(--surface-2)] border border-white/[0.05] rounded-3xl p-8 animate-reveal shadow-2xl shadow-black/50">
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                  { label: "Total Runs", val: stats?.total_runs || "1,284", icon: Zap, color: "text-indigo-400" },
-                  { label: "Resolved", val: stats?.total_resolved || "1,052", icon: CheckCircle2, color: "text-emerald-400" },
-                  { label: "Compute Logic", val: stats?.active_sandboxes || "0", icon: Cpu, color: "text-zinc-400" },
-                  { label: "Global Uptime", val: "99.9%", icon: Activity, color: "text-sky-400" },
-                ].map((stat, i) => (
-                  <div key={i} className="p-2">
-                     <div className="flex items-center justify-between mb-4">
-                        <div className={`p-2 rounded-lg bg-white/[0.03] border border-white/[0.05] ${stat.color}`}>
-                           <stat.icon size={16} />
-                        </div>
-                        <TrendingUp size={14} className="text-zinc-800" />
+           {/* Section 1: Stats Grid */}
+           <StatsGrid stats={stats} isLoading={statsLoading} />
+
+            {/* Section 2: Main Activity List */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+               
+               {/* Left Column: Main Activity */}
+               <div className="xl:col-span-8 space-y-8">
+                  <div className="flex items-center justify-between pb-2">
+                     <div className="flex items-center gap-3">
+                        <Terminal size={18} className="text-[#0891B2]" />
+                        <h2 className="text-xs font-black text-white uppercase tracking-[0.4em]">Autonomous_Cycles</h2>
                      </div>
-                     <p className="text-2xl font-bold text-white tracking-tight mb-1 font-display">{stat.val}</p>
-                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">{stat.label}</p>
                   </div>
-                ))}
-             </div>
-           </div>
 
-           {/* Section 2: Main Activity List (The Core) */}
-           <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-              
-              <div className="xl:col-span-8 space-y-6">
-                 <div className="flex items-center justify-between pb-2">
-                    <div className="flex items-center gap-3">
-                       <Terminal size={18} className="text-indigo-500" />
-                       <h2 className="text-sm font-bold text-white uppercase tracking-widest">Autonomous Cycles</h2>
-                    </div>
-                    <button 
-                      onClick={() => document.getElementById('add-repo-modal-trigger')?.click()}
-                      className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-500 transition-all flex items-center gap-2 shadow-lg shadow-indigo-600/20"
-                    >
-                       <Plus size={14} /> New Link
-                    </button>
-                 </div>
-
-                 <div className="glass-quartz rounded-2xl overflow-hidden animate-reveal delay-100">
-                    {(runs || []).length === 0 ? (
-                      <div className="py-24 text-center">
-                         <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center mx-auto mb-6">
-                            <Activity className="text-zinc-800" size={24} />
-                         </div>
-                         <h3 className="text-sm font-bold text-zinc-300 mb-2">System Idling</h3>
-                         <p className="text-xs text-zinc-600 max-w-xs mx-auto mb-8">Deploy an autonomous probe to begin monitoring your codebase infrastructure.</p>
-                         <OnboardingChecklist />
-                      </div>
+                  <AnimatePresence mode="wait">
+                    {(runs || []).length === 0 && !runsLoading ? (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.02 }}
+                        key="idling"
+                      >
+                        <MagneticCard className="min-h-[550px] flex flex-col items-center justify-center text-center p-12 border-[#0891B2]/20 bg-[#0891B2]/5">
+                          <div className="space-y-12">
+                             {/* AI Pulse Graphic */}
+                             <div className="relative flex items-center justify-center">
+                                <motion.div 
+                                  animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.1, 0.3] }}
+                                  transition={{ duration: 4, repeat: Infinity }}
+                                  className="absolute w-64 h-64 bg-[#0891B2]/20 rounded-full blur-[80px]"
+                                />
+                                <div className="relative w-40 h-40 rounded-full border border-[#0891B2]/30 flex items-center justify-center bg-zinc-950/50 backdrop-blur-3xl">
+                                   <Activity className="text-[#0891B2] animate-pulse" size={56} />
+                                   <motion.div 
+                                     animate={{ scale: [1, 2.5], opacity: [0.4, 0] }}
+                                     transition={{ duration: 3, repeat: Infinity }}
+                                     className="absolute inset-0 border border-[#0891B2]/40 rounded-full"
+                                   />
+                                </div>
+                             </div>
+                             
+                             <div className="max-w-md">
+                                <h3 className="text-4xl font-bold text-white mb-4 font-display tracking-tight">System_Idling</h3>
+                                <p className="text-zinc-500 mb-10 font-medium leading-relaxed">
+                                   Neural network standing by. Monitoring repository endpoints for failure events. Deploy a probe to begin autonomous remediation.
+                                </p>
+                                
+                                <button 
+                                  onClick={() => document.getElementById('add-repo-modal-trigger')?.click()}
+                                  className="px-12 py-5 bg-[#0891B2] text-black font-bold rounded-full text-[11px] uppercase tracking-[0.3em] hover:shadow-[0_0_50px_rgba(8,145,178,0.5)] transition-all transform hover:scale-105 active:scale-95 shadow-xl"
+                                >
+                                   Deploy_Neural_Probe
+                                </button>
+                             </div>
+                          </div>
+                        </MagneticCard>
+                      </motion.div>
                     ) : (
-                      <div className="divide-y divide-white/[0.03]">
-                         {runs.map((run: any) => (
-                           <div 
-                              key={run.id}
-                              className="px-6 py-5 flex items-center gap-6 hover:bg-zinc-900/30 transition-colors cursor-pointer group"
-                              onClick={() => {}}
-                           >
-                              <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center group-hover:border-indigo-500/30 transition-all">
-                                 <Shield size={18} className="text-zinc-600 group-hover:text-indigo-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                 <div className="flex items-center gap-3 mb-1">
-                                    <h4 className="text-sm font-bold text-zinc-100 truncate">{run.repo}</h4>
-                                    <span className="px-1.5 py-0.5 rounded bg-zinc-900 border border-white/[0.05] text-[9px] font-bold text-zinc-500 uppercase">
-                                       {run.run_type}
-                                    </span>
-                                 </div>
-                                 <div className="flex items-center gap-3 text-[10px] text-zinc-600">
-                                    <span>Branch: {run.branch}</span>
-                                    <span>MTTR: {formatMTTR(run.mttr_seconds)}</span>
-                                 </div>
-                              </div>
-                              
-                              <div className="flex flex-col items-end gap-2 text-right">
-                                 <div className="flex items-center gap-2">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${run.status === 'completed' ? 'bg-emerald-500' : run.status === 'failed' ? 'bg-rose-500' : 'bg-indigo-500 animate-pulse'}`} />
-                                    <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">{run.status}</span>
-                                 </div>
-                                 <span className="text-[9px] font-medium text-zinc-700">{formatTime(run.created_at)}</span>
-                              </div>
-                           </div>
-                         ))}
-                      </div>
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        key="active"
+                        className="space-y-6"
+                      >
+                         <RunsTable 
+                           runs={runs} 
+                           isLoading={runsLoading} 
+                           onSelectRun={setSelectedRun}
+                         />
+                      </motion.div>
                     )}
-                 </div>
-              </div>
+                  </AnimatePresence>
+               </div>
 
-              {/* Sidebar Widgets (Professional Quartz) */}
+              {/* Right Column: Insights & Stats */}
               <div className="xl:col-span-4 space-y-8">
                  
-                 <div className="glass-quartz rounded-2xl p-7 relative overflow-hidden group">
+                 {/* Neural Protocol Stream (Live Feed) */}
+                 <MagneticCard delay={0.4} className="bg-zinc-950/40 border-white/5 overflow-hidden">
                     <div className="flex items-center justify-between mb-8">
-                       <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Neural Protocols</h3>
-                       <button className="text-indigo-400 hover:text-white transition-colors"><RefreshCw size={14} /></button>
+                       <div className="flex items-center gap-2">
+                          <Radio size={14} className="text-[#0891B2] animate-pulse" />
+                          <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Protocol_Stream</h3>
+                       </div>
+                       <span className="text-[9px] font-mono text-[#0891B2] bg-[#0891B2]/10 px-2 py-0.5 rounded border border-[#0891B2]/20 uppercase">Live_Telemetry</span>
                     </div>
                     
-                    <div className="space-y-6 mb-10">
-                       {insights.map((insight, i) => (
-                         <div key={i} className="flex gap-4">
-                            <div className="mt-1 w-2 h-2 rounded-full bg-indigo-500/20 border border-indigo-500/30 shrink-0" />
-                            <div className="space-y-1">
-                               <p className="text-[11px] font-bold text-zinc-200">{insight.title}</p>
-                               <p className="text-[11px] leading-relaxed text-zinc-500 font-medium">{insight.body}</p>
+                    <div className="space-y-4 font-mono text-[11px] h-[180px] overflow-hidden mask-fade-bottom">
+                       {[
+                         { t: "14:22:01", msg: "Scanning_Node_Beta_Repos...", s: "info" },
+                         { t: "14:22:04", msg: "Health_Check: Stable_Latency (12ms)", s: "success" },
+                         { t: "14:22:09", msg: "Agent_V4_Standby: Awaiting_Event...", s: "info" },
+                         { t: "14:22:15", msg: "Database_Sync: 100%_Complete", s: "success" },
+                         { t: "14:22:20", msg: "Memory_Check: 4.2GB_Available", s: "info" },
+                         { t: "14:22:28", msg: "Network_Pulse: Heartbeat_Sent", s: "info" },
+                       ].map((log, i) => (
+                         <motion.div 
+                           key={i}
+                           initial={{ opacity: 0, x: -10 }}
+                           animate={{ opacity: 1, x: 0 }}
+                           transition={{ delay: 1 + (i * 0.2) }}
+                           className="flex gap-3 text-zinc-500"
+                         >
+                            <span className="text-zinc-700 shrink-0">{log.t}</span>
+                            <span className={log.s === 'success' ? 'text-emerald-500/60' : 'text-zinc-400'}>
+                              {log.msg}
+                            </span>
+                         </motion.div>
+                       ))}
+                    </div>
+                 </MagneticCard>
+
+                 {/* Insights Widget */}
+                 <MagneticCard delay={0.5} className="relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#0891B2]/5 rounded-full blur-[40px] pointer-events-none" />
+                    
+                    <div className="flex items-center justify-between mb-10">
+                       <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                          <Zap size={14} className="text-[#0891B2]" />
+                          Neural_Insights
+                       </h3>
+                       <button className="text-[#0891B2] hover:text-white transition-colors group-hover:rotate-180 duration-700">
+                          <RefreshCw size={14} />
+                       </button>
+                    </div>
+                    
+                    <div className="space-y-8 mb-12">
+                       {insights.length > 0 ? insights.map((insight, i) => (
+                         <div key={i} className="flex gap-5 group/item cursor-pointer">
+                            <div className="mt-1 w-1.5 h-1.5 rounded-full bg-[#0891B2] shadow-[0_0_8px_#0891B2] shrink-0 group-hover/item:scale-150 transition-transform" />
+                            <div className="space-y-1.5">
+                               <p className="text-[13px] font-bold text-white font-display group-hover/item:text-[#0891B2] transition-colors">{insight.title}</p>
+                               <p className="text-[11px] leading-relaxed text-zinc-400 font-medium group-hover/item:text-zinc-300 transition-colors">{insight.body}</p>
                             </div>
                          </div>
-                       ))}
+                       )) : (
+                         <p className="text-[11px] text-zinc-600 italic">Analyzing cycle patterns... Insight generation in progress.</p>
+                       )}
                     </div>
 
                     <button 
                       onClick={() => setIsStrategyModalOpen(true)}
-                      className="w-full py-4 rounded-xl bg-white/[0.03] border border-white/[0.05] text-zinc-400 text-[10px] font-bold uppercase tracking-widest hover:bg-white/[0.06] hover:text-white transition-all shadow-sm"
+                      className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-zinc-500 text-[10px] font-bold uppercase tracking-widest hover:bg-[#0891B2]/10 hover:text-[#0891B2] hover:border-[#0891B2]/20 transition-all font-display"
                     >
-                      View Logic Strategy
+                      Audit_Logic_Framework
                     </button>
-                 </div>
+                 </MagneticCard>
 
-                 {/* Activity History Style Widget */}
-                 <div className="glass-quartz rounded-2xl p-7">
-                    <h3 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-8">Audit Distribution</h3>
-                    <div className="aspect-[4/3] w-full flex items-end justify-between px-2">
+                 {/* Distribution Widget */}
+                 <MagneticCard delay={0.6} className="bg-zinc-950/40">
+                    <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-10">Load_Distribution</h3>
+                    <div className="aspect-[16/7] w-full flex items-end justify-between px-2 gap-3">
                        {[40, 75, 45, 90, 65, 85, 55].map((h, i) => (
-                          <div key={i} className="w-4 rounded-t-full bg-white/[0.03] relative group group-hover:bg-indigo-500/10 transition-all cursor-help" style={{ height: '100%' }}>
-                             <div className="absolute bottom-0 left-0 w-full rounded-t-full bg-indigo-600/40 group-hover:bg-indigo-600 transition-all duration-700" style={{ height: `${h}%` }} />
+                          <div key={i} className="flex-1 rounded-t-lg bg-white/[0.02] relative group cursor-help h-full overflow-hidden border-x border-white/[0.02]">
+                             <motion.div 
+                               initial={{ height: 0 }}
+                               animate={{ height: `${h}%` }}
+                               transition={{ duration: 1.5, delay: 0.8 + (i * 0.1), ease: "circOut" }}
+                               className="absolute bottom-0 left-0 w-full rounded-t-lg bg-gradient-to-t from-[#0891B2]/20 to-[#0891B2]/60 group-hover:from-[#0891B2]/40 group-hover:to-[#0891B2] transition-all"
+                             />
                           </div>
                        ))}
                     </div>
-                    <div className="flex justify-between mt-6 px-1">
-                       {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                          <span key={`${d}-${i}`} className="text-[10px] font-bold text-zinc-800">{d}</span>
+                    <div className="flex justify-between mt-8 px-2">
+                       {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((d, i) => (
+                          <span key={`${d}-${i}`} className="text-[9px] font-bold text-zinc-700 font-mono">{d}</span>
                        ))}
                     </div>
-                 </div>
+                 </MagneticCard>
 
               </div>
-
-           </div>
+            </div>
 
         </div>
       </div>
@@ -218,6 +261,13 @@ export default function Dashboard() {
         isOpen={isStrategyModalOpen} 
         onClose={() => setIsStrategyModalOpen(false)} 
       />
+
+      {selectedRun && (
+        <RunDetailModal 
+          run={selectedRun} 
+          onClose={() => setSelectedRun(null)} 
+        />
+      )}
     </div>
   );
 }

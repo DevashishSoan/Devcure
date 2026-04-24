@@ -20,6 +20,13 @@ class ManualRunRequest(BaseModel):
     commit_sha: str = "HEAD"
     branch: str = "main"
 
+class ActionRunRequest(BaseModel):
+    """Payload format expected by the devcure/auto-heal GitHub Action."""
+    repo_url: str                        # e.g. https://github.com/org/repo
+    branch: str = "main"
+    framework: str = ""                  # auto-detect if empty
+    confidence_threshold: int = 70       # 0-100; below this → escalate for human review
+
 router = APIRouter(prefix="/runs", tags=["Runs"])
 
 @router.get("/", response_model=List[dict])
@@ -282,3 +289,90 @@ async def apply_fix(
     return {"status": "success", "pr_url": pr_url}
 
 
+@router.post("/trigger", status_code=status.HTTP_201_CREATED)
+async def trigger_action_run(
+    request: ActionRunRequest,
+    background_tasks: BackgroundTasks,
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """
+    Trigger endpoint for the devcure/auto-heal GitHub Action.
+    Accepts a repo_url directly — no pre-configured repo record required.
+    Returns a run_id for polling.
+    """
+    user_id = user.get("sub")
+
+    # Normalise repo_url → owner/repo
+    url_parts = request.repo_url.rstrip("/").replace(".git", "").split("/")
+    repo_name = f"{url_parts[-2]}/{url_parts[-1]}"
+    run_id = f"run-{uuid.uuid4().hex[:8]}"
+
+    # Fetch user settings for agent config
+    settings_res = supabase.table("user_settings") \
+        .select("*").eq("user_id", user_id).single().execute()
+    user_settings = settings_res.data or {}
+
+    # Convert confidence_threshold (0-100 int) → float (0.0-1.0)
+    confidence_float = request.confidence_threshold / 100.0
+
+    supabase.table("runs").insert({
+        "id": run_id,
+        "user_id": user_id,
+        "repo": repo_name,
+        "branch": request.branch,
+        "status": "queued",
+        "run_type": "GitHub_Action",
+        "max_iterations": user_settings.get("max_repair_iterations", 5),
+    }).execute()
+
+    background_tasks.add_task(
+        run_autonomous_qa_with_config,
+        run_id,
+        user_id,
+        repo_name,
+        request.branch,
+        user_settings.get("max_repair_iterations", 5),
+        supabase,
+    )
+
+    logger.info(f"GitHub Action triggered run {run_id} for {repo_name}@{request.branch}")
+    return {"run_id": run_id, "status": "queued", "repo": repo_name}
+
+
+@router.get("/{run_id}/trace")
+async def get_run_trace(
+    run_id: str,
+    user = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    """
+    Returns the full structured reasoning trace for a run.
+    Used by the dashboard replay feature and the Action's PR comment bot.
+    """
+    user_id = user.get("sub")
+
+    response = supabase.table("runs") \
+        .select("id, status, repo, branch, framework_detected, diagnosis, repair_diff, pr_url, mttr_seconds, confidence_score, trajectory") \
+        .eq("id", run_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    run = response.data
+    return {
+        "run_id": run["id"],
+        "status": run["status"],
+        "repo": run.get("repo"),
+        "branch": run.get("branch"),
+        "framework": run.get("framework_detected"),
+        "diagnosis": run.get("diagnosis"),
+        "repair_diff": run.get("repair_diff"),
+        "pr_url": run.get("pr_url"),
+        "mttr_seconds": run.get("mttr_seconds"),
+        "confidence_score": run.get("confidence_score"),
+        "trace": run.get("trajectory", []),
+    }

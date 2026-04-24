@@ -170,7 +170,7 @@ def persist_event(state: AgentState, status: str, log: Optional[str] = None, dat
     
     # Handle optional telemetry data that might be in 'data'
     if data:
-        for field in ["regressions_found", "mttr_seconds", "agent_time_seconds", "iterations", "pr_url"]:
+        for field in ["regressions_found", "mttr_seconds", "agent_time_seconds", "iterations", "pr_url", "confidence_score"]:
             if field in data:
                 payload[field] = data[field]
     
@@ -202,6 +202,12 @@ async def baseline_node(state: AgentState):
 
     command = FRAMEWORK_COMMANDS.get(framework, "pytest -v")
     
+    # --- Task 4.1: Repository Context Discovery ---
+    # We scan the repo to give the AI visibility into the codebase structure
+    file_discovery = sandbox_manager.run_command(state['sandbox_id'], "find . -maxdepth 3 -not -path '*/.*' -not -path '**/node_modules/*' -not -path '**/__pycache__/*'")
+    repo_files = [f.strip("./") for f in file_discovery.split("\n") if f.strip() and "." in f]
+    # --- End Discovery ---
+
     output = sandbox_manager.run_command(state['sandbox_id'], command)
     parser = TestOutputParser()
     result = parser.parse(output, framework)
@@ -211,41 +217,88 @@ async def baseline_node(state: AgentState):
         "baseline_failures": list(result.failed_test_names),
         "target_test_names": list(result.failed_test_names),
         "failures": [truncated_output],
+        "files": repo_files,
         "framework_detected": framework,
         "status": "baseline_captured"
     }
     
     # Merge for persistence
     merged = {**state, **new_state}
-    persist_event(merged, "baseline_captured", log=f"Detected {framework}. Found {len(result.failed_test_names)} baseline failures.")
+    persist_event(merged, "baseline_captured", log=f"Detected {framework}. Found {len(result.failed_test_names)} baseline failures. Indexed {len(repo_files)} codebase files.")
     
-    print(f"[{state['run_id']}] Baseline captured: {len(result.failed_test_names)} failures.")
+    print(f"[{state['run_id']}] Baseline captured: {len(result.failed_test_names)} failures. Codebase indexed.")
     return new_state
 
 async def diagnosis_node(state: AgentState):
     """
-    Analyzes test failures using Gemini 1.5 Flash.
+    Analyzes test failures and repository structure to identify root cause and target file.
     """
-    print(f"[{state['run_id']}] Diagnosing failures using Gemini Flash...")
+    print(f"[{state['run_id']}] Performing intelligent diagnosis and file targeting...")
     
     failures = "\n".join(state.get("failures", []))
-    repo_info = f"Repository: {state['repo_path']}\nFiles: {', '.join(state['files'])}"
+    repo_structure = "\n".join(state.get("files", []))
     
-    prompt = f"Analyze the following test failures and repo context:\n\n{repo_info}\n\nFailures:\n{failures}\n\nProvide a concise diagnosis of the root cause."
-    system_instruction = f"You are a senior QA automation engineer with a '{state.get('agent_personality', 'Surgical')}' personality. Your goal is to diagnose test failures precisely and technically. Adapt your diagnosis style to your personality profile."
+    system_instruction = (
+        f"You are a Principal AI Debugging Agent with a '{state.get('agent_personality', 'Surgical')}' persona. "
+        "Your task is to analyze test failures and identify the root cause. "
+        "You must output your response in the following format:\n"
+        "DIAGNOSIS: <your technical analysis>\n"
+        "TARGET_FILE: <path/to/file_to_fix.py>\n"
+        "REQUIRED_FILES: <path/a.py, path/b.py> (Optional: list other files you need to read for context)\n"
+    )
     
-    diagnosis = await unified_ai_call(state.get("ai_provider", "gemini"), prompt, system_instruction=system_instruction)
-    target_file = state["files"][0] if state["files"] else None
+    prompt = (
+        f"CODEBASE INDEX:\n{repo_structure}\n\n"
+        f"TEST FAILURES:\n{failures}\n\n"
+        "Analyze the failures and the codebase structure. Identify the root cause, the file that needs fixing, and any other files you need to see to understand the dependencies."
+    )
     
-    new_state = {"diagnosis": diagnosis, "status": "diagnosed", "target_file": target_file}
+    response = await unified_ai_call(state.get("ai_provider", "gemini"), prompt, system_instruction=system_instruction)
+    
+    # Parse structured response
+    diagnosis_match = re.search(r"DIAGNOSIS:\s*(.*?)TARGET_FILE:", response, re.S | re.I)
+    target_file_match = re.search(r"TARGET_FILE:\s*([\w\.\/\-_]+)", response, re.I)
+    required_files_match = re.search(r"REQUIRED_FILES:\s*([\w\.\/\-_,\s]+)", response, re.I)
+    
+    diagnosis = diagnosis_match.group(1).strip() if diagnosis_match else response
+    target_file = target_file_match.group(1).strip() if target_file_match else (state["files"][0] if state["files"] else None)
+    
+    required_files = []
+    if required_files_match:
+        required_files = [f.strip() for f in required_files_match.group(1).split(",") if f.strip()]
+
+    # Verify file exists and clean up
+    valid_files = []
+    for f_target in ([target_file] + required_files):
+        if not f_target: continue
+        if f_target in state["files"]:
+            valid_files.append(f_target)
+        else:
+            # Fuzzy match
+            for f_repo in state["files"]:
+                if f_target.split("/")[-1] == f_repo.split("/")[-1]:
+                    valid_files.append(f_repo)
+                    break
+    
+    final_target = valid_files[0] if valid_files else target_file
+    final_context = valid_files[1:] if len(valid_files) > 1 else []
+
+    new_state = {
+        "diagnosis": diagnosis, 
+        "status": "diagnosed", 
+        "target_file": final_target,
+        "context_files": final_context
+    }
     merged = {**state, **new_state}
-    persist_event(merged, "diagnosed", log=diagnosis)
+    persist_event(merged, "diagnosed", log=f"Targeting {final_target} for repair. Requested context for: {', '.join(final_context)}\nDiagnosis: {diagnosis}")
     
     return new_state
 
 async def repair_node(state: AgentState):
     """
-    Proposes and applies a surgical fix using Gemini 2.0 Flash.
+    Proposes and applies a surgical fix using Gemini 2.0 Flash with multi-file context.
+    Outputs a CONFIDENCE score (0-100). If below the configured threshold, escalates
+    for human review instead of auto-applying.
     """
     print(f"[{state['run_id']}] Proposing surgical repair for {state['target_file']}...")
     
@@ -253,47 +306,83 @@ async def repair_node(state: AgentState):
         persist_event(state, "escalated", log="No target file identified.")
         return {"status": "escalated", "diagnosis": "ESCALATE: No target file identified for repair."}
 
-    original_content = sandbox_manager.read_file(state["sandbox_id"], state["target_file"])
+    # Gather Context
+    target_content = sandbox_manager.read_file(state["sandbox_id"], state["target_file"])
     
+    context_data = []
+    for cf in state.get("context_files", []):
+        content = sandbox_manager.read_file(state["sandbox_id"], cf)
+        if content:
+            context_data.append(f"FILE: {cf}\nCONTENT:\n{content}\n---\n")
+
     system_instruction = (
         f"You are a surgical code repair agent with a '{state.get('agent_personality', 'Surgical')}' persona. "
-        "Output valid unified diff and nothing else. "
-        "If your personality is 'Surgical', strive for minimal, low-risk patches. "
-        "If 'Bold', explore more comprehensive improvements to prevent future regressions."
+        "You MUST output your response in exactly this format and nothing else:\n"
+        "CONFIDENCE: <integer 0-100>\n"
+        "PATCH:\n<unified diff>\n"
+        "\n"
+        "CONFIDENCE must reflect how certain you are the patch fixes the issue without regressions. "
+        "If confidence is below 50, set CONFIDENCE to 0 and output ESCALATE instead of a patch. "
+        "Focus ONLY on fixing the target file. Use context files to understand dependencies but DO NOT include diffs for them."
     )
+    
     prompt = (
         f"FAILING TEST OUTPUT:\n{state.get('failures', [])}\n\n"
         f"ROOT CAUSE DIAGNOSIS:\n{state['diagnosis']}\n\n"
-        f"FILE TO REPAIR ({state['target_file']}):\n{original_content}\n\n"
-        "Output the unified diff now:"
+        f"ADDITIONAL CONTEXT FILES:\n{''.join(context_data)}\n\n"
+        f"TARGET FILE TO REPAIR ({state['target_file']}):\n{target_content}\n\n"
+        "Output your CONFIDENCE score and unified diff PATCH now:"
     )
 
     response = await unified_ai_call(state.get("ai_provider", "gemini"), prompt, system_instruction=system_instruction)
     
-    # --- Task 3.3: Empty Diff Guard ---
-    if not response or not response.strip() or "ESCALATE" in response.upper():
-        msg = "Agent returned an empty string." if not response or not response.strip() else "Agent signaled ESCALATE."
-        persist_event(state, "escalated", log=msg)
+    # --- Parse confidence score ---
+    confidence_score = 100  # default: trust the patch
+    confidence_match = re.search(r"CONFIDENCE:\s*(\d+)", response, re.I)
+    if confidence_match:
+        confidence_score = min(100, max(0, int(confidence_match.group(1))))
+    
+    # Extract patch section
+    patch_section_match = re.search(r"PATCH:\s*(.+)", response, re.S | re.I)
+    patch_response = patch_section_match.group(1).strip() if patch_section_match else response
+    # --- End confidence parsing ---
+    
+    # --- Guard: Empty or ESCALATE response ---
+    if not patch_response or not patch_response.strip() or "ESCALATE" in patch_response.upper():
+        msg = "Agent returned an empty patch." if not patch_response or not patch_response.strip() else "Agent signaled ESCALATE."
+        persist_event(state, "escalated", log=msg, data={"confidence_score": 0})
         return {"status": "escalated", "diagnosis": f"ESCALATE: {msg}", "iteration": state["iteration"] + 1}
-    # --- End Guard ---
 
-    patch_diff = parse_agent_response(response)
+    # --- Guard: Low confidence threshold ---
+    threshold_pct = int(state.get("auto_repair_threshold", 0.7) * 100)
+    if confidence_score < threshold_pct:
+        msg = f"Confidence score {confidence_score}% is below the configured threshold of {threshold_pct}%. Escalating for human review."
+        persist_event(state, "escalated", log=msg, data={"confidence_score": confidence_score, "repair_diff": patch_response})
+        return {
+            "status": "escalated",
+            "diagnosis": msg,
+            "repair_diff": patch_response,  # surface the patch for human review
+            "iteration": state["iteration"] + 1,
+        }
+    # --- End guards ---
+
+    patch_diff = parse_agent_response(patch_response)
     validation = validate_patch_safety(patch_diff)
     
     if not validation.passed:
-        persist_event(state, "escalated", log=f"Safety Gate Block: {validation.reason}")
+        persist_event(state, "escalated", log=f"Safety Gate Block: {validation.reason}", data={"confidence_score": confidence_score})
         return {"status": "escalated", "diagnosis": f"Safety Gate Block: {validation.reason}"}
 
     sandbox_manager.write_file(state["sandbox_id"], "repair.diff", patch_diff)
-    sandbox_result = sandbox_manager.run_command(state["sandbox_id"], f"patch {state['target_file']} < repair.diff")
+    sandbox_result, exit_code = sandbox_manager.run_command_ext(state["sandbox_id"], f"patch {state['target_file']} < repair.diff")
     
-    if "error" in sandbox_result.lower() or "failed" in sandbox_result.lower():
-        persist_event(state, "unresolved", log=f"Patch failed: {sandbox_result}")
+    if exit_code != 0:
+        persist_event(state, "unresolved", log=f"Patch failed to apply: {sandbox_result}", data={"confidence_score": confidence_score})
         return {"status": "unresolved", "iteration": state["iteration"] + 1}
 
     new_state = {"repair_diff": patch_diff, "status": "repair_applied", "iteration": state["iteration"] + 1}
     merged = {**state, **new_state}
-    persist_event(merged, "repair_applied", log=patch_diff)
+    persist_event(merged, "repair_applied", log=f"[Confidence: {confidence_score}%] {patch_diff}", data={"confidence_score": confidence_score})
     
     return new_state
 

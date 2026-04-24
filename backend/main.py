@@ -15,6 +15,7 @@ from routes.runs import router as runs_router
 from routes.webhooks import router as webhooks_router
 from routes.repos import router as repos_router
 from routes.user_settings import router as user_settings_router
+from routes.demo import router as demo_router
 from supabase import Client
 
 # Logging configuration
@@ -85,6 +86,7 @@ app.include_router(runs_router, prefix=settings.API_V1_STR)
 app.include_router(webhooks_router, prefix=settings.API_V1_STR)
 app.include_router(repos_router, prefix=settings.API_V1_STR)
 app.include_router(user_settings_router, prefix=settings.API_V1_STR)
+app.include_router(demo_router, prefix=settings.API_V1_STR, tags=["demo"])
 
 
 @app.get("/health")
