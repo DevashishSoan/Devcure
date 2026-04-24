@@ -10,7 +10,13 @@ import {
   ExternalLink,
   Smartphone,
   Mail,
-  Zap
+  Zap,
+  User,
+  Building2,
+  Cpu,
+  Fingerprint,
+  Target,
+  Workflow
 } from "lucide-react";
 import { fetchUserSettings, updateUserSettings } from "@/lib/api";
 import { toast } from "@/lib/toast";
@@ -23,6 +29,8 @@ const SlackIcon = ({ size = 20, className = "" }: { size?: number, className?: s
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
+    display_name: "",
+    organization_name: "",
     slack_webhook_url: "",
     notify_on_completed: true,
     notify_on_escalated: true,
@@ -44,7 +52,7 @@ export default function SettingsPage() {
       const data = await fetchUserSettings();
       if (data) setSettings(data);
     } catch (err) {
-      toast.error("Failed to load settings");
+      toast.error("Failed to load neural configuration");
     } finally {
       setLoading(false);
     }
@@ -55,7 +63,7 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       await updateUserSettings(settings);
-      toast.success("Settings synchronized successfully");
+      toast.success("Identity & Protocols synchronized");
     } catch (err) {
       toast.error("Failed to update control protocols");
     } finally {
@@ -66,171 +74,179 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-void">
-        <Loader2 className="animate-spin text-acid" size={32} />
+        <div className="relative flex items-center justify-center">
+          <div className="absolute w-24 h-24 border border-acid/20 rounded-full animate-ping" />
+          <Loader2 className="animate-spin text-acid" size={32} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-10 bg-void custom-scrollbar">
-      <div className="max-w-4xl mx-auto space-y-12">
+    <div className="flex-1 overflow-y-auto p-10 bg-void custom-scrollbar relative">
+      {/* Neural Background elements */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-plasma/5 blur-[120px] rounded-full -mr-64 -mt-64 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-acid/5 blur-[120px] rounded-full -ml-64 -mb-64 pointer-events-none" />
+
+      <div className="max-w-4xl mx-auto space-y-12 relative z-10">
         <div className="space-y-1">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-4">
-            System Control
-            <Shield className="text-acid" size={24} />
+          <div className="flex items-center gap-3 mb-2">
+             <Fingerprint className="text-[#0891B2]" size={16} />
+             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500">System_Control / Settings</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tighter text-white flex items-center gap-4">
+            Identity & Protocols
+            <Shield className="text-[#0891B2]" size={24} />
           </h1>
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-[0.2em]">Neural Network Configuration & Notifications</p>
+          <p className="text-xs text-zinc-500 max-w-xl leading-relaxed">
+            Configure your neural signature, agent personality parameters, and notification hooks for real-time autonomous reporting.
+          </p>
         </div>
 
         <form onSubmit={handleSave} className="space-y-8">
-          {/* Slack Integration */}
-          <div className="rounded-2xl border border-white/5 bg-[#080b12]/60 p-8 space-y-6 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-plasma/5 rounded-full -mr-32 -mt-32 blur-[80px]" />
-            
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-2xl bg-plasma/10 text-plasma border border-plasma/10">
-                <SlackIcon size={24} />
+          {/* Identity Section */}
+          <div className="rounded-[32px] border border-white/5 bg-zinc-950/40 backdrop-blur-2xl p-10 space-y-8 relative overflow-hidden group">
+            <div className="flex items-center gap-4 mb-2">
+              <div className="p-3 rounded-2xl bg-[#0891B2]/10 text-[#0891B2] border border-[#0891B2]/10 shadow-[0_0_15px_rgba(8,145,178,0.1)]">
+                <User size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Slack Communication</h3>
-                <p className="text-xs text-slate-500">Enable real-time agent reporting to your workspace.</p>
+                <h3 className="text-lg font-bold text-white">Neural Identity</h3>
+                <p className="text-xs text-zinc-500">Your profile signature across the platform.</p>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Webhook Endpoint URL</label>
-                <input 
-                  type="url" 
-                  placeholder="https://hooks.slack.com/services/..."
-                  value={settings.slack_webhook_url || ""}
-                  onChange={(e) => setSettings({...settings, slack_webhook_url: e.target.value})}
-                  className="w-full bg-void border border-white/5 rounded-xl py-4 px-5 text-sm font-mono text-plasma placeholder:text-slate-800 focus:outline-none focus:border-plasma/30 transition-all"
-                />
-              </div>
-              <p className="text-[10px] text-slate-600 flex items-center gap-2">
-                <ExternalLink size={10} />
-                Generate a webhook in your Slack App Settings to receive autonomous updates.
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <div className="space-y-3">
+                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1 flex items-center gap-2">
+                   <Target size={12} /> Display Name
+                 </label>
+                 <input 
+                   type="text" 
+                   placeholder="Neural Architect"
+                   value={settings.display_name || ""}
+                   onChange={(e) => setSettings({...settings, display_name: e.target.value})}
+                   className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 px-6 text-sm font-bold text-white placeholder:text-zinc-800 focus:outline-none focus:border-[#0891B2]/30 transition-all shadow-inner"
+                 />
+               </div>
+               <div className="space-y-3">
+                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1 flex items-center gap-2">
+                   <Building2 size={12} /> Organization
+                 </label>
+                 <input 
+                   type="text" 
+                   placeholder="DevCure Labs"
+                   value={settings.organization_name || ""}
+                   onChange={(e) => setSettings({...settings, organization_name: e.target.value})}
+                   className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 px-6 text-sm font-bold text-white placeholder:text-zinc-800 focus:outline-none focus:border-[#0891B2]/30 transition-all shadow-inner"
+                 />
+               </div>
             </div>
           </div>
 
-          {/* Preferences */}
+          {/* Integration & Alerts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="rounded-2xl border border-white/5 bg-[#080b12]/60 p-8 space-y-6">
+            {/* Slack */}
+            <div className="rounded-[32px] border border-white/5 bg-zinc-950/40 backdrop-blur-2xl p-10 space-y-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-acid/10 text-acid border border-acid/10">
+                <div className="p-3 rounded-2xl bg-plasma/10 text-plasma border border-plasma/10">
+                  <SlackIcon size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Neural Hooks</h3>
+                  <p className="text-xs text-zinc-500">Slack workspace integration.</p>
+                </div>
+              </div>
+              <div className="space-y-3 pt-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 ml-1">Webhook URL</label>
+                <input 
+                  type="url" 
+                  placeholder="https://hooks.slack.com/..."
+                  value={settings.slack_webhook_url || ""}
+                  onChange={(e) => setSettings({...settings, slack_webhook_url: e.target.value})}
+                  className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-4 text-xs font-mono text-plasma placeholder:text-zinc-900 focus:outline-none focus:border-plasma/30 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Notifications */}
+            <div className="rounded-[32px] border border-white/5 bg-zinc-950/40 backdrop-blur-2xl p-10 space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-[#0891B2]/10 text-[#0891B2] border border-[#0891B2]/10">
                   <Bell size={24} />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white">Alert Logic</h3>
-                  <p className="text-xs text-slate-500">Configure notification triggers.</p>
+                  <p className="text-xs text-zinc-500">Configure trigger conditions.</p>
                 </div>
               </div>
-
               <div className="space-y-4 pt-2">
                 <ToggleItem 
                   icon={Zap} 
                   label="On Task Completion" 
-                  sub="Alert when an autonomous PR is opened."
+                  sub="Alert when a patch is verified."
                   active={settings.notify_on_completed}
                   onChange={(v: boolean) => setSettings({...settings, notify_on_completed: v})}
-                  color="text-acid"
+                  color="text-[#0891B2]"
                 />
                 <ToggleItem 
                   icon={Shield} 
                   label="On Escalation" 
-                  sub="Alert when the agent requires human oversight."
+                  sub="Alert when human review is needed."
                   active={settings.notify_on_escalated}
                   onChange={(v: boolean) => setSettings({...settings, notify_on_escalated: v})}
                   color="text-plasma"
                 />
               </div>
             </div>
-
-            <div className="rounded-2xl border border-white/5 bg-[#080b12]/60 p-8 space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-ice/10 text-ice border border-ice/10">
-                  <MessageSquare size={24} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Interface Channels</h3>
-                  <p className="text-xs text-slate-500">Redundant reporting streams.</p>
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <ToggleItem 
-                  icon={Mail} 
-                  label="Email Transmissions" 
-                  sub="Receive daily summary manifests."
-                  active={settings.notify_via_email}
-                  onChange={(v: boolean) => setSettings({...settings, notify_via_email: v})}
-                  color="text-ice"
-                />
-                <ToggleItem 
-                  icon={Smartphone} 
-                  label="Push Protocol" 
-                  sub="Mobile alerts via browser interface."
-                  active={false}
-                  disabled={true}
-                  onChange={() => {}}
-                  color="text-slate-700"
-                />
-              </div>
-            </div>
           </div>
 
-          {/* Agent Neuro-Config */}
-          <div className="rounded-2xl border border-white/5 bg-[#080b12]/60 p-8 space-y-8 relative overflow-hidden group">
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-acid/5 rounded-full -ml-32 -mb-32 blur-[80px]" />
-            
+          {/* Neuro-Config */}
+          <div className="rounded-[32px] border border-white/5 bg-zinc-950/40 backdrop-blur-2xl p-10 space-y-10 relative overflow-hidden group">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-2xl bg-acid/10 text-acid border border-acid/10">
-                <Shield size={24} />
+                <Workflow size={24} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Agent Neuro-Config</h3>
-                <p className="text-xs text-slate-500">Fine-tune the autonomous repair engine logic.</p>
+                <h3 className="text-lg font-bold text-white">Neuro-Config Protocols</h3>
+                <p className="text-xs text-zinc-500">Fine-tune the autonomous repair engine core logic.</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 text-left">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {/* Intelligence Brain */}
-              <div className="space-y-3 text-left">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block">Intelligence Brain</label>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 ml-1 block">LLM Substrate</label>
                 <select 
                   value={settings.ai_provider || "gemini"}
                   onChange={(e) => setSettings({...settings, ai_provider: e.target.value})}
-                  className="w-full bg-void border border-white/5 rounded-xl py-3 px-4 text-[11px] font-bold text-white focus:outline-none focus:border-sky-400/30 transition-all appearance-none cursor-pointer"
+                  className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-4 text-[11px] font-bold text-white focus:outline-none focus:border-[#0891B2]/30 transition-all appearance-none cursor-pointer"
                 >
-                  <option value="gemini" className="bg-void text-white">Gemini 2.0 (Google)</option>
-                  <option value="minimax" className="bg-void text-white">MiniMax M2.7 (NVIDIA)</option>
-                  <option value="gemma" className="bg-void text-white">Gemma 2 27B (Google/OR)</option>
+                  <option value="gemini" className="bg-zinc-900 text-white">Gemini 2.0 Flash</option>
+                  <option value="gpt4" className="bg-zinc-900 text-white">GPT-4o Precision</option>
+                  <option value="claude" className="bg-zinc-900 text-white">Claude 3.5 Sonnet</option>
                 </select>
-                <p className="text-[9px] text-slate-600 px-1 italic">Switch between top-tier AI reasoning models.</p>
               </div>
 
               {/* Personality */}
-              <div className="space-y-3 text-left">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1 block">Logic Personality</label>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 ml-1 block">Logic Persona</label>
                 <select 
                   value={settings.agent_personality || "Surgical"}
                   onChange={(e) => setSettings({...settings, agent_personality: e.target.value})}
-                  className="w-full bg-void border border-white/5 rounded-xl py-3 px-4 text-[11px] font-bold text-white focus:outline-none focus:border-sky-400/30 transition-all appearance-none cursor-pointer"
+                  className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-4 text-[11px] font-bold text-white focus:outline-none focus:border-[#0891B2]/30 transition-all appearance-none cursor-pointer"
                 >
-                  <option value="Surgical" className="bg-void text-white">Surgical (Minimal risk)</option>
-                  <option value="Bold" className="bg-void text-white">Bold (Structural fixes)</option>
-                  <option value="Creative" className="bg-void text-white">Creative (New approaches)</option>
+                  <option value="Surgical" className="bg-zinc-900 text-white">Surgical (Default)</option>
+                  <option value="Bold" className="bg-zinc-900 text-white">Bold (Structural)</option>
+                  <option value="Creative" className="bg-zinc-900 text-white">Creative (Agile)</option>
                 </select>
-                <p className="text-[9px] text-slate-600 px-1 italic">Controls the risk profile of suggested patches.</p>
               </div>
 
               {/* Threshold */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Confidence Gate</label>
-                  <span className="text-[10px] font-mono text-acid">{(settings.auto_repair_threshold * 100).toFixed(0)}%</span>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Confidence Gate</label>
+                  <span className="text-[10px] font-black font-mono text-acid">{(settings.auto_repair_threshold * 100).toFixed(0)}%</span>
                 </div>
                 <input 
                   type="range" 
@@ -239,16 +255,15 @@ export default function SettingsPage() {
                   step="0.1"
                   value={settings.auto_repair_threshold || 0.7}
                   onChange={(e) => setSettings({...settings, auto_repair_threshold: parseFloat(e.target.value)})}
-                  className="w-full h-1 bg-void rounded-lg appearance-none cursor-pointer accent-acid mt-2"
+                  className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-acid mt-2"
                 />
-                <p className="text-[9px] text-slate-600 px-1 italic text-left">Confidence needed to auto-merge fixes.</p>
               </div>
 
               {/* Iterations */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recursion Depth</label>
-                  <span className="text-[10px] font-mono text-ice">{settings.max_repair_iterations || 5} CYCLES</span>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Max Iterations</label>
+                  <span className="text-[10px] font-black font-mono text-ice">{settings.max_repair_iterations || 5} CYCLES</span>
                 </div>
                 <input 
                   type="range" 
@@ -257,9 +272,8 @@ export default function SettingsPage() {
                   step="1"
                   value={settings.max_repair_iterations || 5}
                   onChange={(e) => setSettings({...settings, max_repair_iterations: parseInt(e.target.value)})}
-                  className="w-full h-1 bg-void rounded-lg appearance-none cursor-pointer accent-ice mt-2"
+                  className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-ice mt-2"
                 />
-                <p className="text-[9px] text-slate-600 px-1 italic text-left">Max repair attempts per resolution cycle.</p>
               </div>
             </div>
           </div>
@@ -268,10 +282,10 @@ export default function SettingsPage() {
             <button 
               type="submit"
               disabled={saving}
-              className="px-10 py-4 rounded-xl bg-acid text-void font-black uppercase tracking-[0.2em] text-xs hover:shadow-[0_0_40px_rgba(0,255,136,0.3)] transition-all disabled:opacity-50 flex items-center gap-3"
+              className="group px-12 py-5 rounded-full bg-white text-black font-black uppercase tracking-[0.3em] text-xs hover:bg-[#0891B2] hover:text-white transition-all shadow-[0_0_40px_rgba(255,255,255,0.1)] disabled:opacity-50 flex items-center gap-4"
             >
               {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-              Update Neural Config
+              Sync_Protocols
             </button>
           </div>
         </form>
@@ -282,21 +296,23 @@ export default function SettingsPage() {
 
 function ToggleItem({ icon: Icon, label, sub, active, onChange, color, disabled }: any) {
   return (
-    <div className={`flex items-center justify-between group transition-opacity ${disabled ? 'opacity-30' : 'opacity-100'}`}>
-      <div className="flex items-center gap-3">
-        <Icon size={16} className={`${active ? color : 'text-slate-700'} transition-colors`} />
+    <div className={`flex items-center justify-between group transition-all ${disabled ? 'opacity-30' : 'opacity-100'}`}>
+      <div className="flex items-center gap-4">
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${active ? 'bg-zinc-900 border border-white/10' : 'bg-transparent border border-white/5'}`}>
+          <Icon size={14} className={`${active ? color : 'text-zinc-700'} transition-colors`} />
+        </div>
         <div>
-          <p className="text-[11px] font-bold text-white uppercase tracking-tight">{label}</p>
-          <p className="text-[9px] text-slate-600 line-clamp-1">{sub}</p>
+          <p className="text-[11px] font-black text-white uppercase tracking-tight">{label}</p>
+          <p className="text-[9px] text-zinc-600 line-clamp-1">{sub}</p>
         </div>
       </div>
       <button 
         type="button"
         disabled={disabled}
         onClick={() => onChange(!active)}
-        className={`w-10 h-5 rounded-full p-1 transition-all ${active ? 'bg-acid' : 'bg-slate-800'}`}
+        className={`w-10 h-5 rounded-full p-1 transition-all ${active ? 'bg-[#0891B2]' : 'bg-zinc-800'}`}
       >
-        <div className={`w-3 h-3 bg-void rounded-full transition-all ${active ? 'translate-x-5' : 'translate-x-0'}`} />
+        <div className={`w-3 h-3 bg-white rounded-full transition-all ${active ? 'translate-x-5' : 'translate-x-0'}`} />
       </button>
     </div>
   );

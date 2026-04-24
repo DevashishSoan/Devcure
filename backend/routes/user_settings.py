@@ -18,14 +18,19 @@ async def get_user_settings(
     user_id = user.get("sub")
     
     response = supabase.table("user_profiles") \
-        .select("slack_webhook_url, notify_on_completed, notify_on_escalated, notify_via_email, agent_personality, max_repair_iterations, auto_repair_threshold, ai_provider") \
+        .select("display_name, organization_name, slack_webhook_url, notify_on_completed, notify_on_escalated, notify_via_email, agent_personality, max_repair_iterations, auto_repair_threshold, ai_provider") \
         .eq("user_id", user_id) \
         .execute()
         
     if not response.data:
-        # Create a default profile if it doesn't exist (failsafe for the trigger)
+        # Create a default profile if it doesn't exist
+        user_email = user.get("email", "Developer")
+        default_name = user_email.split("@")[0] if "@" in user_email else user_email
+        
         default_profile = {
             "user_id": user_id,
+            "display_name": default_name,
+            "organization_name": f"{default_name}'s Lab",
             "slack_webhook_url": None,
             "notify_on_completed": True,
             "notify_on_escalated": True,
@@ -52,10 +57,12 @@ async def update_user_settings(
     user = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    """Updates the notification preferences for the authenticated user."""
+    """Updates the profile and preferences for the authenticated user."""
     user_id = user.get("sub")
     
     allowed_fields = {
+        "display_name",
+        "organization_name",
         "slack_webhook_url", 
         "notify_on_completed", 
         "notify_on_escalated", 

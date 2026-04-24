@@ -203,9 +203,15 @@ async def trigger_manual_run(
     if not repo_config:
         raise HTTPException(status_code=404, detail="Repository not found or access denied")
     
-    # 1.1 Robust repo_name extraction (handles .git and varying path depths)
-    url_parts = repo_config["repo_url"].rstrip("/").replace(".git", "").split("/")
-    repo_name = f"{url_parts[-2]}/{url_parts[-1]}"
+    # 1.1 Robust repo_name extraction
+    try:
+        url_parts = repo_config["repo_url"].rstrip("/").replace(".git", "").split("/")
+        if len(url_parts) < 2:
+            raise ValueError("Malformed repo URL")
+        repo_name = f"{url_parts[-2]}/{url_parts[-1]}"
+    except Exception:
+        repo_name = repo_config["repo_url"]
+        
     run_id = f"run-{uuid.uuid4().hex[:8]}"
     
     # 2. Create the run record
@@ -321,14 +327,20 @@ async def trigger_action_run(
     user_id = user.get("sub")
 
     # Normalise repo_url → owner/repo
-    url_parts = request.repo_url.rstrip("/").replace(".git", "").split("/")
-    repo_name = f"{url_parts[-2]}/{url_parts[-1]}"
+    try:
+        url_parts = request.repo_url.rstrip("/").replace(".git", "").split("/")
+        if len(url_parts) < 2:
+            raise HTTPException(status_code=400, detail="Invalid GitHub repository URL format")
+        repo_name = f"{url_parts[-2]}/{url_parts[-1]}"
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not parse repository owner and name from URL")
+        
     run_id = f"run-{uuid.uuid4().hex[:8]}"
 
-    # Fetch user settings for agent config
-    settings_res = supabase.table("user_settings") \
-        .select("*").eq("user_id", user_id).single().execute()
-    user_settings = settings_res.data or {}
+    # Fetch user settings for agent config (from user_profiles table)
+    settings_res = supabase.table("user_profiles") \
+        .select("*").eq("user_id", user_id).execute()
+    user_settings = settings_res.data[0] if settings_res.data else {}
 
     # Convert confidence_threshold (0-100 int) → float (0.0-1.0)
     confidence_float = request.confidence_threshold / 100.0

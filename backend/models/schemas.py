@@ -37,9 +37,15 @@ class RepoConfig(BaseModel):
 
 class UserProfile(BaseModel):
     user_id: str
+    display_name: Optional[str] = None
+    organization_name: Optional[str] = None
     github_username: Optional[str] = None
     github_access_token: Optional[str] = None
     slack_webhook_url: Optional[str] = None
     notify_on_completed: bool = True
     notify_on_escalated: bool = True
     notify_via_email: bool = False
+    agent_personality: str = "Surgical"
+    ai_provider: str = "gemini"
+    max_repair_iterations: int = 5
+    auto_repair_threshold: float = 0.7

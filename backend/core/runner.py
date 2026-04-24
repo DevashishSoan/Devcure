@@ -28,12 +28,11 @@ async def run_autonomous_qa_with_config(run_id: str, user_id: str, repo: str, br
         
         # 2. Fetch User Profile for Neuro-Configuration (Personality, Thresholds)
         profile_res = supabase.table("user_profiles") \
-            .select("agent_personality, auto_repair_threshold, max_repair_iterations") \
+            .select("agent_personality, auto_repair_threshold, max_repair_iterations, ai_provider") \
             .eq("user_id", user_id) \
-            .single() \
             .execute()
         
-        profile = profile_res.data or {}
+        profile = profile_res.data[0] if profile_res.data else {}
         agent_personality = profile.get("agent_personality", "Surgical")
         max_iterations = profile.get("max_repair_iterations", max_iterations)
         auto_repair_threshold = profile.get("auto_repair_threshold", 0.7)
