@@ -101,6 +101,7 @@ export default function RunsTable({
                   <th className="p-6 pl-8 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display">Repository</th>
                   <th className="p-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display">Protocol</th>
                   <th className="p-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display">Status</th>
+                  <th className="p-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display text-center">Confidence</th>
                   <th className="p-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display text-center">MTTR</th>
                   <th className="p-6 pr-8 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] font-display text-right">Manifest</th>
                 </tr>
@@ -138,6 +139,25 @@ export default function RunsTable({
                     </td>
                     <td className="p-6">
                       <StatusBadge status={run.status} />
+                    </td>
+                    <td className="p-6 text-center">
+                      <div className="flex flex-col items-center gap-1.5 min-w-[80px]">
+                        <span className={`text-[10px] font-black font-mono ${
+                          (run.confidence_score || 0) >= 90 ? 'text-emerald-400' : 
+                          (run.confidence_score || 0) >= 70 ? 'text-amber-400' : 'text-zinc-500'
+                        }`}>
+                          {run.confidence_score ? `${run.confidence_score}%` : '--'}
+                        </span>
+                        <div className="w-16 h-[2px] bg-white/5 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full transition-all duration-1000 ${
+                              (run.confidence_score || 0) >= 90 ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 
+                              (run.confidence_score || 0) >= 70 ? 'bg-amber-500' : 'bg-zinc-700'
+                            }`}
+                            style={{ width: `${run.confidence_score || 0}%` }}
+                          />
+                        </div>
+                      </div>
                     </td>
                     <td className="p-6 text-center">
                       <span className="text-xs font-bold font-mono text-zinc-400">{formatMTTR(run.mttr_seconds)}</span>

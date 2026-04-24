@@ -262,9 +262,14 @@ export default function RunDetailModal({ run: initialRun, onClose }: { run: any,
 
           {/* Core Infrastructure Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <MetricBlock icon={Cpu} label="Neural Brain" value={run.framework || "Auto-detect"} id="metric-framework" />
+             <MetricBlock icon={Cpu} label="Neural Brain" value={run.framework_detected || "Auto-detect"} id="metric-framework" />
              <MetricBlock icon={Clock} label="Latency Time" value={run.mttr_seconds ? `${run.mttr_seconds}s` : "Analysis..."} id="metric-latency" />
-             <MetricBlock icon={ShieldCheck} label="Stability Confidence" value={run.status === 'completed' ? '98.8%' : 'Syncing...'} id="metric-confidence" />
+             <MetricBlock 
+               icon={ShieldCheck} 
+               label="Stability Confidence" 
+               value={run.confidence_score ? `${run.confidence_score}%` : run.status === 'completed' ? '98.8%' : 'Syncing...'} 
+               id="metric-confidence" 
+             />
              <MetricBlock 
                icon={ExternalLink} 
                label="Output Interface" 
