@@ -175,8 +175,22 @@ def persist_event(state: AgentState, status: str, log: Optional[str] = None, dat
                 payload[field] = data[field]
     
     try:
+        # Task: Before updating, we should ideally know the schema, but we can also just catch errors
+        # or try to update fields one by one if a bulk update fails.
+        # For now, we'll try the bulk update and if it fails, we'll try a minimal update.
         supabase.table("runs").update(payload).eq("id", state["run_id"]).execute()
     except Exception as e:
+        if "column" in str(e).lower():
+            # Fallback: only update status and trajectory
+            minimal_payload = {
+                "status": status,
+                "trajectory": new_trajectory,
+                "updated_at": "now()"
+            }
+            try:
+                supabase.table("runs").update(minimal_payload).eq("id", state["run_id"]).execute()
+            except:
+                pass
         print(f"Failed to persist event to Supabase: {e}")
 
 async def baseline_node(state: AgentState):
@@ -204,14 +218,33 @@ async def baseline_node(state: AgentState):
     
     # --- Task 4.1: Repository Context Discovery ---
     # We scan the repo to give the AI visibility into the codebase structure
-    file_discovery = sandbox_manager.run_command(state['sandbox_id'], "find . -maxdepth 3 -not -path '*/.*' -not -path '**/node_modules/*' -not -path '**/__pycache__/*'")
-    repo_files = [f.strip("./") for f in file_discovery.split("\n") if f.strip() and "." in f]
+    # Use a cross-platform approach: Python's os.walk
+    repo_files = []
+    try:
+        for root, dirs, files in os.walk(sandbox_path):
+            # Prune directories
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', '__pycache__', 'venv', '.venv']]
+            
+            # Calculate depth
+            rel_root = os.path.relpath(root, sandbox_path)
+            depth = 0 if rel_root == "." else len(rel_root.split(os.sep))
+            if depth >= 3:
+                dirs[:] = [] # stop recursing
+            
+            for f in files:
+                if f.startswith('.'): continue
+                rel_f = os.path.join(rel_root, f) if rel_root != "." else f
+                repo_files.append(rel_f.replace(os.sep, "/"))
+    except Exception as e:
+        print(f"Error during file discovery: {e}")
     # --- End Discovery ---
 
     output = sandbox_manager.run_command(state['sandbox_id'], command)
     parser = TestOutputParser()
     result = parser.parse(output, framework)
     truncated_output = truncate_output(result.output)
+    
+    print(f"[{state['run_id']}] Indexed files: {repo_files}")
     
     new_state = {
         "baseline_failures": list(result.failed_test_names),

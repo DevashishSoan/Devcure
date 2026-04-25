@@ -14,7 +14,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 async def self_test():
     print(">> DevCure Autonomous Self-Test Initiated")
     print("="*50)
-    load_dotenv(".env")
+    # Load .env from backend directory
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    load_dotenv(env_path)
     
     # Correct auth UUID
     user_id = "5a32b59b-4596-4f3b-a507-757caa32784b" 
@@ -23,7 +25,7 @@ async def self_test():
     jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
     
     if not supabase_url or not jwt_secret:
-        print("❌ Error: SUPABASE_URL or SUPABASE_JWT_SECRET missing in .env")
+        print("Error: SUPABASE_URL or SUPABASE_JWT_SECRET missing in .env")
         return
 
     project_ref = supabase_url.replace("https://", "").split(".")[0]
@@ -106,7 +108,7 @@ async def self_test():
         # Check run status and trajectory JSON column
         run_res = s.table("runs").select("status", "trajectory").eq("id", run_id).execute()
         if not run_res.data:
-            print("❌ Error: Run record disappeared")
+            print("Error: Run record disappeared")
             break
             
         status = run_res.data[0]['status']

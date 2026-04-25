@@ -27,12 +27,21 @@ async def run_autonomous_qa_with_config(run_id: str, user_id: str, repo: str, br
         setup_time_seconds = round(time.time() - run_start_time, 2)
         
         # 2. Fetch User Profile for Neuro-Configuration (Personality, Thresholds)
-        profile_res = supabase.table("user_profiles") \
-            .select("agent_personality, auto_repair_threshold, max_repair_iterations, ai_provider") \
-            .eq("user_id", user_id) \
-            .execute()
+        try:
+            profile_res = supabase.table("user_profiles") \
+                .select("agent_personality, auto_repair_threshold, max_repair_iterations, ai_provider") \
+                .eq("user_id", user_id) \
+                .execute()
+            profile = profile_res.data[0] if profile_res.data else {}
+        except Exception as e:
+            logger.warning(f"Failed to fetch detailed profile (missing columns?): {e}")
+            # Try a safe fallback query for just basic profile
+            try:
+                profile_res = supabase.table("user_profiles").select("*").eq("user_id", user_id).execute()
+                profile = profile_res.data[0] if profile_res.data else {}
+            except:
+                profile = {}
         
-        profile = profile_res.data[0] if profile_res.data else {}
         agent_personality = profile.get("agent_personality", "Surgical")
         max_iterations = profile.get("max_repair_iterations", max_iterations)
         auto_repair_threshold = profile.get("auto_repair_threshold", 0.7)
@@ -97,13 +106,16 @@ async def run_autonomous_qa_with_config(run_id: str, user_id: str, repo: str, br
                 supabase.table("runs").update(update_payload).eq("id", run_id).execute()
 
                 # Trigger Notifications
-                profile_res = supabase.table("user_profiles") \
-                    .select("slack_webhook_url, notify_on_completed, notify_on_escalated") \
-                    .eq("user_id", user_id) \
-                    .single() \
-                    .execute()
-                
-                profile = profile_res.data
+                try:
+                    profile_res = supabase.table("user_profiles") \
+                        .select("slack_webhook_url, notify_on_completed, notify_on_escalated") \
+                        .eq("user_id", user_id) \
+                        .single() \
+                        .execute()
+                    profile = profile_res.data
+                except Exception as e:
+                    logger.warning(f"Failed to fetch notification settings: {e}")
+                    profile = None
                 if profile and profile.get("slack_webhook_url"):
                     should_notify = (status == "completed" and profile.get("notify_on_completed")) or \
                                     (status == "escalated" and profile.get("notify_on_escalated"))
