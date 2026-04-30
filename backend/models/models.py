@@ -27,6 +27,7 @@ class Run(Base):
     diagnosis        = Column(Text, nullable=True)
     proposed_diff    = Column(Text, nullable=True)
     pr_url           = Column(String, nullable=True)
+    confidence_score = Column(Integer, default=0)
     
     # Safety data
     baseline_failures = Column(JSONB, default=list)

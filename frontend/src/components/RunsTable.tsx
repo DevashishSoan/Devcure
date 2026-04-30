@@ -138,7 +138,7 @@ export default function RunsTable({
                       </span>
                     </td>
                     <td className="p-6">
-                      <StatusBadge status={run.status} />
+                      <StatusBadge status={run.status} createdAt={run.created_at} />
                     </td>
                     <td className="p-6 text-center">
                       <div className="flex flex-col items-center gap-1.5 min-w-[80px]">
@@ -165,7 +165,7 @@ export default function RunsTable({
                     <td className="p-6 pr-8 text-right">
                       <div className="flex flex-col items-end">
                         <span className="text-xs font-bold text-zinc-300 font-mono">{formatTime(run.created_at)}</span>
-                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">ID:{run.id}</span>
+                        <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">ID:{run.id?.slice(0, 11).toUpperCase()}</span>
                       </div>
                     </td>
                   </tr>
@@ -179,15 +179,26 @@ export default function RunsTable({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, createdAt }: { status: string, createdAt?: string }) {
   const configs: Record<string, any> = {
     completed: { color: "text-emerald-500", label: "RESOLVED", dot: "bg-emerald-500", shadow: "shadow-[0_0_10px_#10b981]", bg: "bg-emerald-500/5" },
     escalated: { color: "text-amber-500", label: "NEEDS REVIEW", dot: "bg-amber-500", shadow: "shadow-[0_0_12px_#f59e0b]", bg: "bg-amber-500/10", pulse: true },
     failed: { color: "text-rose-500", label: "ABORTED", dot: "bg-rose-500", shadow: "shadow-[0_0_8px_#f43f5e]", bg: "bg-rose-500/5" },
     running: { color: "text-[#0891B2]", label: "EXECUTING", dot: "bg-[#0891B2]", shadow: "shadow-[0_0_10px_#0891B2]", bg: "bg-[#0891B2]/5", pulse: true },
+    stale: { color: "text-zinc-500", label: "TIMED OUT", dot: "bg-zinc-600", shadow: "", bg: "bg-zinc-900/50" },
     queued: { color: "text-zinc-500", label: "STAGING", dot: "bg-zinc-600", shadow: "", bg: "bg-zinc-900/50" },
   };
-  const config = configs[status] || configs.queued;
+  
+  // Detect stale runs (stuck in running/queued for >30min)
+  let effectiveStatus = status;
+  if (['running', 'queued'].includes(status) && createdAt) {
+    const ageMs = Date.now() - new Date(createdAt).getTime();
+    const thirtyMinutes = 30 * 60 * 1000;
+    if (ageMs > thirtyMinutes) {
+      effectiveStatus = 'stale';
+    }
+  }
+  const config = configs[effectiveStatus] || configs.queued;
 
   return (
     <div className={`inline-flex items-center gap-2.5 px-3 py-1 rounded-full border border-current/10 ${config.bg} ${config.color}`}>

@@ -54,6 +54,12 @@ class SandboxManager:
         if repo_url:
             self.clone_repo(sandbox_path, repo_url, token)
 
+        # Initialize venv for Python projects early
+        if os.path.exists(os.path.join(sandbox_path, "requirements.txt")) or \
+           os.path.exists(os.path.join(sandbox_path, "pyproject.toml")):
+            logger.info(f"[{sandbox_id}] Initializing isolated venv...")
+            subprocess.run([os.sys.executable, "-m", "venv", "venv"], cwd=sandbox_path, check=False)
+
         metadata = {
             "id": sandbox_id,
             "path": sandbox_path,
@@ -91,7 +97,7 @@ class SandboxManager:
                 capture_output=True,
                 text=True,
                 shell=False,
-                env=self._get_safe_env()
+                env=self._get_safe_env(path)
             )
         except Exception as e:
             logger.error(f"Cloning failed for {repo_url}: {e}")
@@ -123,17 +129,35 @@ class SandboxManager:
         success = True
         sandbox_path = self.get_path(sandbox_id)
 
+        # Check for Python venv
+        has_venv = os.path.exists(os.path.join(sandbox_path, "venv"))
+        pip_cmd = "pip"
+        if has_venv:
+            if os.name == "nt":
+                pip_cmd = os.path.join("venv", "Scripts", "pip")
+            else:
+                pip_cmd = os.path.join("venv", "bin", "pip")
+
         if os.path.exists(os.path.join(sandbox_path, "requirements.txt")):
-            _, exit_code = self.run_command_ext(sandbox_id, "pip install -r requirements.txt", timeout=120)
+            logger.info(f"[{sandbox_id}] Running pip install...")
+            _, exit_code = self.run_command_ext(sandbox_id, f"{pip_cmd} install -r requirements.txt", timeout=180)
             if exit_code != 0:
                 success = False
         elif os.path.exists(os.path.join(sandbox_path, "pyproject.toml")):
-            _, exit_code = self.run_command_ext(sandbox_id, "pip install .", timeout=120)
+            logger.info(f"[{sandbox_id}] Running pip install . ...")
+            _, exit_code = self.run_command_ext(sandbox_id, f"{pip_cmd} install .", timeout=180)
             if exit_code != 0:
                 success = False
             
         if os.path.exists(os.path.join(sandbox_path, "package.json")):
-            _, exit_code = self.run_command_ext(sandbox_id, "npm install --prefer-offline", timeout=120)
+            logger.info(f"[{sandbox_id}] Running npm install...")
+            # Implement basic node_modules caching: check for shared cache dir
+            cache_dir = os.path.abspath(os.path.join(self.base_path, "..", "node_cache"))
+            if not os.path.exists(cache_dir):
+                os.makedirs(cache_dir)
+            
+            # For now, just run normal npm install but with longer timeout
+            _, exit_code = self.run_command_ext(sandbox_id, "npm install --prefer-offline --no-audit", timeout=300)
             if exit_code != 0:
                 success = False
                 
@@ -149,9 +173,7 @@ class SandboxManager:
         Executes a command and returns a tuple of (output, exit_code).
         Uses Docker when available (with resource caps), falls back to local subprocess.
         """
-        sandbox_path = os.path.abspath(os.path.join(self.base_path, sandbox_id))
-        if not os.path.exists(sandbox_path):
-            raise FileNotFoundError(f"Sandbox {sandbox_id} not found.")
+        sandbox_path = self.get_path(sandbox_id)
 
         if settings.SANDBOX_TYPE == "local" or not self.client:
             return self._run_local_command(sandbox_id, command, timeout)
@@ -160,11 +182,7 @@ class SandboxManager:
 
     def _run_docker_command(self, sandbox_id: str, sandbox_path: str, command: str, image: str, timeout: int) -> Tuple[str, int]:
         """
-        Runs a command in a Docker container with strict resource caps:
-        - Memory: 512MB
-        - CPUs: 2
-        - Network: disabled (prevents exfiltration)
-        - Auto-removed on completion
+        Runs a command in a Docker container with strict resource caps.
         """
         container = None
         try:
@@ -175,12 +193,10 @@ class SandboxManager:
                 working_dir="/app",
                 detach=True,
                 remove=False,
-                # --- Resource caps (roadmap Phase 2.1) ---
                 mem_limit="512m",
-                memswap_limit="512m",   # no swap
-                nano_cpus=2_000_000_000,  # 2 CPUs
+                memswap_limit="512m",
+                nano_cpus=2_000_000_000,
                 network_disabled=True,
-                # -----------------------------------------
             )
             
             try:
@@ -211,10 +227,12 @@ class SandboxManager:
 
     def _run_local_command(self, sandbox_id: str, command: str, timeout: int) -> Tuple[str, int]:
         """
-        Executes a command in a local subprocess with security guards.
-        Used when Docker is not available.
+        Executes a command in a local subprocess with security guards and venv support.
         """
-        sandbox_path = os.path.abspath(os.path.join(self.base_path, sandbox_id))
+        sandbox_path = self.get_path(sandbox_id)
+        
+        # Inject venv into path if it exists
+        env = self._get_safe_env(sandbox_path)
         
         if os.name == "nt":
             cmd_list = ["cmd", "/c", command]
@@ -229,7 +247,7 @@ class SandboxManager:
                 text=True,
                 timeout=timeout,
                 shell=False,
-                env=self._get_safe_env()
+                env=env
             )
             output = (result.stdout or "") + "\n" + (result.stderr or "")
             return output, result.returncode
@@ -238,12 +256,13 @@ class SandboxManager:
         except Exception as e:
             return f"Error running local command: {str(e)}", 1
 
-    def _get_safe_env(self) -> Dict[str, str]:
+    def _get_safe_env(self, sandbox_path: str) -> Dict[str, str]:
         """
-        Returns a sanitised copy of the environment with all platform credentials removed.
-        Prevents sandbox processes from exfiltrating secrets.
+        Returns a sanitised copy of the environment with venv injection.
         """
         safe_env = os.environ.copy()
+        
+        # 1. Secret Sanitization
         sensitive_keys = [
             "SUPABASE_URL", "SUPABASE_KEY", "SUPABASE_SERVICE_KEY",
             "SUPABASE_JWT_SECRET", "GEMINI_API_KEY", "GITHUB_TOKEN",
@@ -253,6 +272,19 @@ class SandboxManager:
             for k in list(safe_env.keys()):
                 if k.upper() == key.upper():
                     safe_env.pop(k, None)
+
+        # 2. Venv Injection
+        venv_path = os.path.join(sandbox_path, "venv")
+        if os.path.exists(venv_path):
+            if os.name == "nt":
+                bin_dir = os.path.join(venv_path, "Scripts")
+            else:
+                bin_dir = os.path.join(venv_path, "bin")
+            
+            # Prepend venv bin to PATH
+            safe_env["PATH"] = bin_dir + os.pathsep + safe_env.get("PATH", "")
+            safe_env["VIRTUAL_ENV"] = venv_path
+
         return safe_env
 
     def cleanup_expired_sandboxes(self):

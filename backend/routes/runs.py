@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status, Body, Request
 from typing import List, Optional
 from pydantic import BaseModel
 from models.schemas import RunEvent, RunStats
@@ -183,18 +183,27 @@ async def get_run_logs(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def trigger_manual_run(
-    request: ManualRunRequest,
+    raw_request: Request,
     background_tasks: BackgroundTasks,
     user = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
     """Triggers a manual autonomous QA run for a given repository."""
+    print("DEBUG: trigger_manual_run reached!")
+    body = await raw_request.json()
+    repo_id = body.get("repo_id")
+    branch = body.get("branch", "main")
+    commit_sha = body.get("commit_sha", "HEAD")
+    
+    if not repo_id:
+        raise HTTPException(status_code=422, detail="repo_id is required")
+
     user_id = user.get("sub")
     
     # 1. Verify repository ownership
     repo_res = supabase.table("repo_configs") \
         .select("*") \
-        .eq("id", request.repo_id) \
+        .eq("id", repo_id) \
         .eq("user_id", user_id) \
         .single() \
         .execute()
@@ -219,8 +228,8 @@ async def trigger_manual_run(
         "id": run_id,
         "user_id": user_id,
         "repo": repo_name,
-        "branch": request.branch,
-        "commit_sha": request.commit_sha,
+        "branch": branch,
+        "commit_sha": commit_sha,
         "status": "queued",
         "run_type": "Manual Trigger",
         "max_iterations": repo_config.get("max_iterations", 5)
@@ -232,7 +241,7 @@ async def trigger_manual_run(
         run_id, 
         user_id, 
         repo_name, 
-        request.branch, 
+        branch, 
         repo_config.get("max_iterations", 5), 
         supabase
     )
@@ -314,7 +323,7 @@ async def apply_fix(
 
 @router.post("/trigger", status_code=status.HTTP_201_CREATED)
 async def trigger_action_run(
-    request: ActionRunRequest,
+    run_request: ActionRunRequest,
     background_tasks: BackgroundTasks,
     user = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
@@ -328,7 +337,7 @@ async def trigger_action_run(
 
     # Normalise repo_url → owner/repo
     try:
-        url_parts = request.repo_url.rstrip("/").replace(".git", "").split("/")
+        url_parts = run_request.repo_url.rstrip("/").replace(".git", "").split("/")
         if len(url_parts) < 2:
             raise HTTPException(status_code=400, detail="Invalid GitHub repository URL format")
         repo_name = f"{url_parts[-2]}/{url_parts[-1]}"
@@ -343,13 +352,13 @@ async def trigger_action_run(
     user_settings = settings_res.data[0] if settings_res.data else {}
 
     # Convert confidence_threshold (0-100 int) → float (0.0-1.0)
-    confidence_float = request.confidence_threshold / 100.0
+    confidence_float = run_request.confidence_threshold / 100.0
 
     supabase.table("runs").insert({
         "id": run_id,
         "user_id": user_id,
         "repo": repo_name,
-        "branch": request.branch,
+        "branch": run_request.branch,
         "status": "queued",
         "run_type": "GitHub_Action",
         "max_iterations": user_settings.get("max_repair_iterations", 5),
@@ -360,12 +369,12 @@ async def trigger_action_run(
         run_id,
         user_id,
         repo_name,
-        request.branch,
+        run_request.branch,
         user_settings.get("max_repair_iterations", 5),
         supabase,
     )
 
-    logger.info(f"GitHub Action triggered run {run_id} for {repo_name}@{request.branch}")
+    logger.info(f"GitHub Action triggered run {run_id} for {repo_name}@{run_request.branch}")
     return {"run_id": run_id, "status": "queued", "repo": repo_name}
 
 

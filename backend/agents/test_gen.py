@@ -69,7 +69,7 @@ def detect_test_framework(sandbox_path: str) -> str:
     if (root / "requirements.txt").exists() or (root / "pyproject.toml").exists():
         return "pytest"
     
-    return "unknown"
+    return None
 
 FRAMEWORK_COMMANDS = {
     "pytest": "pytest -v --tb=short --no-header",
@@ -146,15 +146,19 @@ def append_trajectory_event(trajectory: List[Dict[str, Any]], event: Dict[str, A
     trajectory.append({**event, "timestamp": time.time()})
     return trajectory[-MAX_TRAJECTORY_EVENTS:]
 
-def persist_event(state: AgentState, status: str, log: Optional[str] = None, data: Optional[Dict] = None):
-    """Performs a surgical direct write to Supabase for real-time dashboard updates."""
+def persist_event(state: AgentState, status: str, log: Optional[str] = None, data: Optional[Dict] = None) -> List[Dict[str, Any]]:
+    """Performs a surgical direct write to Supabase and returns the updated trajectory."""
     supabase = get_supabase()
-    if not supabase: return
     
     event = {"event": status, "log": log}
     if data: event.update(data)
     
-    new_trajectory = append_trajectory_event(state.get("trajectory", []), event)
+    # Crucial: Use the latest trajectory from state to avoid history loss
+    current_trajectory = list(state.get("trajectory", []))
+    new_trajectory = append_trajectory_event(current_trajectory, event)
+    
+    if not supabase: 
+        return new_trajectory
     
     payload = {
         "status": status,
@@ -162,36 +166,36 @@ def persist_event(state: AgentState, status: str, log: Optional[str] = None, dat
         "updated_at": "now()"
     }
     
-    # Promote top-level fields for easier querying as per user request
+    # Populate error_classes if we have failures to classify
+    if state.get("failures") and not state.get("error_classes"):
+        failures_text = "\n".join(state["failures"])
+        detected_classes = []
+        if "timeout" in failures_text.lower(): detected_classes.append("Network Timeout")
+        if "connection" in failures_text.lower(): detected_classes.append("Connection Refused")
+        if "assertionerror" in failures_text.lower(): detected_classes.append("Logic Regression")
+        if "syntaxerror" in failures_text.lower(): detected_classes.append("Syntax Error")
+        if "401" in failures_text or "unauthorized" in failures_text.lower(): detected_classes.append("Auth Failure")
+        
+        if detected_classes:
+            payload["error_classes"] = list(set(detected_classes))
+    
+    # Promote top-level fields
     if state.get("baseline_failures"):
         payload["baseline_failures"] = list(state["baseline_failures"])
     if state.get("framework_detected"):
         payload["framework_detected"] = state["framework_detected"]
     
-    # Handle optional telemetry data that might be in 'data'
     if data:
         for field in ["regressions_found", "mttr_seconds", "agent_time_seconds", "iterations", "pr_url", "confidence_score"]:
             if field in data:
                 payload[field] = data[field]
     
     try:
-        # Task: Before updating, we should ideally know the schema, but we can also just catch errors
-        # or try to update fields one by one if a bulk update fails.
-        # For now, we'll try the bulk update and if it fails, we'll try a minimal update.
         supabase.table("runs").update(payload).eq("id", state["run_id"]).execute()
     except Exception as e:
-        if "column" in str(e).lower():
-            # Fallback: only update status and trajectory
-            minimal_payload = {
-                "status": status,
-                "trajectory": new_trajectory,
-                "updated_at": "now()"
-            }
-            try:
-                supabase.table("runs").update(minimal_payload).eq("id", state["run_id"]).execute()
-            except:
-                pass
         print(f"Failed to persist event to Supabase: {e}")
+        
+    return new_trajectory
 
 async def baseline_node(state: AgentState):
     """
@@ -201,17 +205,46 @@ async def baseline_node(state: AgentState):
 
     sandbox_path = sandbox_manager.get_path(state['sandbox_id'])
     if not sandbox_path or not os.path.exists(sandbox_path):
-        persist_event(state, "escalated", log="Failed to initialize sandbox (clone failure).")
-        return {"status": "escalated", "diagnosis": "ESCALATE: Git clone failure (wrong token, private repo, or repo deleted)."}
+        traj = persist_event(state, "escalated", log="Failed to initialize sandbox (clone failure).")
+        return {"status": "escalated", "diagnosis": "ESCALATE: Git clone failure (wrong token, private repo, or repo deleted).", "trajectory": traj}
 
     framework = detect_test_framework(sandbox_path)
+    
+    # --- Persist framework immediately ---
+    try:
+        supabase = get_supabase()
+        if supabase:
+            supabase.table("runs").update({
+                "framework_detected": framework,
+                "updated_at": "now()"
+            }).eq("id", state["run_id"]).execute()
+    except Exception as e:
+        print(f"[{state['run_id']}] Could not persist framework early: {e}")
+
+    # --- Task: Repo Complexity Guard ---
+    # Scan file count to prevent hanging on massive repos (e.g. facebook/react)
+    file_count = 0
+    for root, dirs, files in os.walk(sandbox_path):
+        dirs[:] = [d for d in dirs if d not in ['.git', 'node_modules', '__pycache__', 'venv', '.venv']]
+        file_count += len(files)
+        if file_count > 5000:
+            msg = f"Repository is too large ({file_count}+ files). Escalating to prevent infrastructure timeout."
+            traj = persist_event({**state, "framework_detected": framework}, "escalated", log=msg)
+            return {"status": "escalated", "diagnosis": f"ESCALATE: {msg}", "trajectory": traj, "framework_detected": framework}
     
     # --- Task 3.4: Dependency Guard ---
     deps_ok = sandbox_manager.install_dependencies(state['sandbox_id'])
     if not deps_ok:
-        error_msg = "Dependency installation failed. Manual review required."
-        persist_event(state, "escalated", log=error_msg)
-        return {"status": "escalated", "diagnosis": f"ESCALATE: {error_msg}"}
+        error_msg = "Dependency installation failed (Timeout or Conflict). Attempting Static Analysis Fallback..."
+        # We don't escalate yet; we set status to 'degraded' to allow the agent to try without full environment
+        traj = persist_event({**state, "framework_detected": framework}, "running", log=error_msg)
+        return {
+            "status": "degraded", 
+            "diagnosis": f"ENV_FAILURE: {error_msg}", 
+            "trajectory": traj, 
+            "framework_detected": framework,
+            "failures": ["CRITICAL: Could not run baseline tests due to environment failure. Proceeding with surgical static analysis."]
+        }
     # --- End Guard ---
 
     command = FRAMEWORK_COMMANDS.get(framework, "pytest -v")
@@ -246,6 +279,20 @@ async def baseline_node(state: AgentState):
     
     print(f"[{state['run_id']}] Indexed files: {repo_files}")
     
+    if len(result.failed_test_names) == 0:
+        msg = f"No baseline failures detected in {framework}. Codebase appears healthy."
+        new_state = {
+            "baseline_failures": [],
+            "target_test_names": [],
+            "failures": [truncated_output],
+            "files": repo_files,
+            "framework_detected": framework,
+            "status": "completed"
+        }
+        new_state["trajectory"] = persist_event({**state, **new_state}, "completed", log=msg)
+        print(f"[{state['run_id']}] {msg}")
+        return new_state
+
     new_state = {
         "baseline_failures": list(result.failed_test_names),
         "target_test_names": list(result.failed_test_names),
@@ -255,9 +302,9 @@ async def baseline_node(state: AgentState):
         "status": "baseline_captured"
     }
     
-    # Merge for persistence
+    # Merge for persistence and update trajectory in state
     merged = {**state, **new_state}
-    persist_event(merged, "baseline_captured", log=f"Detected {framework}. Found {len(result.failed_test_names)} baseline failures. Indexed {len(repo_files)} codebase files.")
+    new_state["trajectory"] = persist_event(merged, "baseline_captured", log=f"Detected {framework}. Found {len(result.failed_test_names)} baseline failures. Indexed {len(repo_files)} codebase files.")
     
     print(f"[{state['run_id']}] Baseline captured: {len(result.failed_test_names)} failures. Codebase indexed.")
     return new_state
@@ -323,7 +370,7 @@ async def diagnosis_node(state: AgentState):
         "context_files": final_context
     }
     merged = {**state, **new_state}
-    persist_event(merged, "diagnosed", log=f"Targeting {final_target} for repair. Requested context for: {', '.join(final_context)}\nDiagnosis: {diagnosis}")
+    new_state["trajectory"] = persist_event(merged, "diagnosed", log=f"Targeting {final_target} for repair. Requested context for: {', '.join(final_context)}\nDiagnosis: {diagnosis}")
     
     return new_state
 
@@ -336,8 +383,8 @@ async def repair_node(state: AgentState):
     print(f"[{state['run_id']}] Proposing surgical repair for {state['target_file']}...")
     
     if not state["target_file"]:
-        persist_event(state, "escalated", log="No target file identified.")
-        return {"status": "escalated", "diagnosis": "ESCALATE: No target file identified for repair."}
+        traj = persist_event(state, "escalated", log="No target file identified.")
+        return {"status": "escalated", "diagnosis": "ESCALATE: No target file identified for repair.", "trajectory": traj}
 
     # Gather Context
     target_content = sandbox_manager.read_file(state["sandbox_id"], state["target_file"])
@@ -383,19 +430,20 @@ async def repair_node(state: AgentState):
     # --- Guard: Empty or ESCALATE response ---
     if not patch_response or not patch_response.strip() or "ESCALATE" in patch_response.upper():
         msg = "Agent returned an empty patch." if not patch_response or not patch_response.strip() else "Agent signaled ESCALATE."
-        persist_event(state, "escalated", log=msg, data={"confidence_score": 0})
-        return {"status": "escalated", "diagnosis": f"ESCALATE: {msg}", "iteration": state["iteration"] + 1}
+        traj = persist_event(state, "escalated", log=msg, data={"confidence_score": 0})
+        return {"status": "escalated", "diagnosis": f"ESCALATE: {msg}", "iteration": state["iteration"] + 1, "trajectory": traj}
 
     # --- Guard: Low confidence threshold ---
     threshold_pct = int(state.get("auto_repair_threshold", 0.7) * 100)
     if confidence_score < threshold_pct:
         msg = f"Confidence score {confidence_score}% is below the configured threshold of {threshold_pct}%. Escalating for human review."
-        persist_event(state, "escalated", log=msg, data={"confidence_score": confidence_score, "repair_diff": patch_response})
+        traj = persist_event(state, "escalated", log=msg, data={"confidence_score": confidence_score, "repair_diff": patch_response})
         return {
             "status": "escalated",
             "diagnosis": msg,
             "repair_diff": patch_response,  # surface the patch for human review
             "iteration": state["iteration"] + 1,
+            "trajectory": traj
         }
     # --- End guards ---
 
@@ -410,12 +458,12 @@ async def repair_node(state: AgentState):
     sandbox_result, exit_code = sandbox_manager.run_command_ext(state["sandbox_id"], f"patch {state['target_file']} < repair.diff")
     
     if exit_code != 0:
-        persist_event(state, "unresolved", log=f"Patch failed to apply: {sandbox_result}", data={"confidence_score": confidence_score})
-        return {"status": "unresolved", "iteration": state["iteration"] + 1}
+        traj = persist_event(state, "unresolved", log=f"Patch failed to apply: {sandbox_result}", data={"confidence_score": confidence_score})
+        return {"status": "unresolved", "iteration": state["iteration"] + 1, "trajectory": traj}
 
     new_state = {"repair_diff": patch_diff, "status": "repair_applied", "iteration": state["iteration"] + 1}
     merged = {**state, **new_state}
-    persist_event(merged, "repair_applied", log=f"[Confidence: {confidence_score}%] {patch_diff}", data={"confidence_score": confidence_score})
+    new_state["trajectory"] = persist_event(merged, "repair_applied", log=f"[Confidence: {confidence_score}%] {patch_diff}", data={"confidence_score": confidence_score})
     
     return new_state
 
@@ -428,6 +476,19 @@ async def verification_node(state: AgentState):
     framework = state.get("framework_detected") or detect_test_framework(sandbox_path)
     command = FRAMEWORK_COMMANDS.get(framework, "pytest -v")
     
+    # --- Task: Handle Degraded Mode ---
+    if state.get("status") == "degraded":
+        # In degraded mode, we skip running tests because dependencies failed.
+        # We escalate the patch for human review since we can't verify it automatically.
+        msg = "DEGRADED_MODE: Patch applied but could not be verified due to environment failure. Escalating for manual audit."
+        new_state = {
+            "status": "escalated",
+            "diagnosis": msg,
+            "trajectory": persist_event(state, "escalated", log=msg)
+        }
+        return new_state
+    # --- End Degraded Mode ---
+
     output = sandbox_manager.run_command(state['sandbox_id'], command)
     parser = TestOutputParser()
     result = parser.parse(output, framework)
@@ -451,7 +512,7 @@ async def verification_node(state: AgentState):
             "regressions_found": regressions
         }
         merged = {**state, **new_state}
-        persist_event(merged, "escalated", log=error_msg, data={"regressions_found": regressions})
+        new_state["trajectory"] = persist_event(merged, "escalated", log=error_msg, data={"regressions_found": regressions})
         return new_state
 
     still_failing_targets = [t for t in result.failed_test_names if t in state["target_test_names"]]
@@ -488,7 +549,7 @@ async def verification_node(state: AgentState):
         }
         merged = {**state, **new_state}
 
-        persist_event(merged, "completed", log="Verification SUCCESS: All target tests passed!", data={
+        new_state["trajectory"] = persist_event(merged, "completed", log="Verification SUCCESS: All target tests passed!", data={
             "mttr_seconds": mttr,
             "agent_time_seconds": agent_time,
             "setup_time_seconds": state.get("setup_time_seconds"),
@@ -501,12 +562,12 @@ async def verification_node(state: AgentState):
     
     elif state["iteration"] >= state["max_iterations"]:
         new_state = {"status": "escalated", "failures": [truncated_output]}
-        persist_event({**state, **new_state}, "escalated", log="Max iterations reached.")
+        new_state["trajectory"] = persist_event({**state, **new_state}, "escalated", log="Max iterations reached.")
         return new_state
     
     else:
         new_state = {"status": "unresolved", "failures": [truncated_output], "iteration": state["iteration"]}
-        persist_event({**state, **new_state}, "unresolved", log=f"{len(still_failing_targets)} targets still failing.")
+        new_state["trajectory"] = persist_event({**state, **new_state}, "unresolved", log=f"{len(still_failing_targets)} targets still failing.")
         return new_state
 
 def should_continue(state: AgentState):
@@ -533,7 +594,7 @@ def build_test_gen_graph():
     
     workflow.add_conditional_edges(
         "baseline",
-        lambda x: "diagnose" if x["status"] != "escalated" else END,
+        lambda x: "diagnose" if x["status"] not in ["escalated", "completed"] else END,
         {"diagnose": "diagnose", END: END}
     )
     

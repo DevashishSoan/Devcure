@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchRepos, createRepo, deleteRepo as apiDeleteRepo } from "@/lib/api";
+import { fetchRepos, createRepo, deleteRepo as apiDeleteRepo, triggerRun as apiTriggerRun } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
 export interface Repository {
@@ -63,12 +63,30 @@ export function useRepos() {
     }
   };
 
+  const [isTriggering, setIsTriggering] = useState<string | null>(null);
+
+  const triggerRun = async (repoId: string, branch: string) => {
+    setIsTriggering(repoId);
+    try {
+      const result = await apiTriggerRun(repoId, branch);
+      toast.success("Autonomous cycle initialized");
+      return result;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to initialize cycle");
+      throw err;
+    } finally {
+      setIsTriggering(null);
+    }
+  };
+
   return {
     repos,
     loading,
     error,
+    isTriggering,
     refresh: loadRepos,
     addRepo,
-    removeRepo
+    removeRepo,
+    triggerRun
   };
 }

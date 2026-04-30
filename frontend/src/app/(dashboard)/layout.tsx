@@ -2,6 +2,7 @@ import Sidebar from "@/components/Sidebar";
 import { NeuralWeb } from "@/components/landing/NeuralWeb";
 import { CureGlare } from "@/components/landing/CureGlare";
 import NeuralFluidityBackground from "@/components/NeuralFluidityBackground";
+import { ToastContainer } from "@/components/ui/Toast";
 
 export default function DashboardLayout({
   children,
@@ -27,6 +28,7 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+      <ToastContainer />
     </div>
   );
 }

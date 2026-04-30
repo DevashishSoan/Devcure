@@ -82,6 +82,9 @@ export default function ReposPage() {
 }
 
 function RepoCard({ repo, onDelete }: { repo: Repository, onDelete: () => void }) {
+  const { triggerRun, isTriggering } = useRepos();
+  const triggering = isTriggering === repo.id;
+
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
@@ -118,9 +121,15 @@ function RepoCard({ repo, onDelete }: { repo: Repository, onDelete: () => void }
           </div>
           
           <div className="flex items-center gap-2">
-             <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-zinc-500 hover:text-white transition-all cursor-pointer">
-                <Zap size={16} />
-             </div>
+             <button 
+               onClick={() => triggerRun(repo.id, repo.branch)}
+               disabled={triggering}
+               className={`p-2.5 rounded-xl bg-white/5 border border-white/5 transition-all cursor-pointer ${
+                 triggering ? 'text-[#0891B2] animate-pulse' : 'text-zinc-500 hover:text-white'
+               }`}
+             >
+                {triggering ? <Loader2 size={16} className="animate-spin" /> : <Zap size={16} />}
+             </button>
              <button 
                onClick={onDelete}
                className="p-2.5 rounded-xl bg-rose-500/5 border border-rose-500/10 text-rose-500/40 hover:text-rose-500 hover:bg-rose-500/10 transition-all"

@@ -5,6 +5,8 @@
 CREATE TABLE IF NOT EXISTS user_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid unique not null references auth.users(id) on delete cascade,
+  display_name text,
+  organization_name text,
   slack_webhook_url text,
   notify_on_completed boolean default true,
   notify_on_escalated boolean default true,
@@ -13,11 +15,12 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   max_repair_iterations integer default 5,
   auto_repair_threshold float default 0.7,
   ai_provider text default 'gemini',
-  created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
 
 -- Migration for existing users
+ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS display_name text;
+ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS organization_name text;
 ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS agent_personality text DEFAULT 'Surgical';
 ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS max_repair_iterations integer DEFAULT 5;
 ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS auto_repair_threshold float DEFAULT 0.7;
@@ -27,10 +30,12 @@ ALTER TABLE public.user_profiles ADD COLUMN IF NOT EXISTS ai_provider text DEFAU
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
 -- 3. Define Policies
+DROP POLICY IF EXISTS "Users can view own profile" ON user_profiles;
 CREATE POLICY "Users can view own profile" 
   ON user_profiles FOR SELECT 
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
 CREATE POLICY "Users can update own profile" 
   ON user_profiles FOR UPDATE 
   USING (auth.uid() = user_id);

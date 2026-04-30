@@ -27,11 +27,13 @@ ALTER TABLE ab_events ENABLE ROW LEVEL SECURITY;
 
 -- 4. Define Access Policies
 -- Users can read their own events (useful for dashboard analytics)
+DROP POLICY IF EXISTS "users_read_own_ab_events" ON ab_events;
 CREATE POLICY "users_read_own_ab_events"
   ON ab_events FOR SELECT
   USING (auth.uid() = user_id);
 
 -- Anyone can insert events (anonymous or authenticated)
+DROP POLICY IF EXISTS "anyone_can_insert_ab_events" ON ab_events;
 CREATE POLICY "anyone_can_insert_ab_events"
   ON ab_events FOR INSERT
   WITH CHECK (true);

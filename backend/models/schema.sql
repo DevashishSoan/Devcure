@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS runs (
     diagnosis TEXT,
     proposed_diff TEXT,
     pr_url TEXT,
+    confidence_score INTEGER DEFAULT 0,
 
     -- Safety data
     baseline_failures JSONB DEFAULT '[]'::jsonb,
@@ -55,33 +56,40 @@ CREATE INDEX IF NOT EXISTS repo_configs_user_id_idx ON repo_configs(user_id);
 
 -- Enable RLS
 ALTER TABLE runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE repo_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE repo_configs ENABLE ROW LEVEL SECURITY; 
 
 -- RLS Policies: users can only see/modify their own data
+DROP POLICY IF EXISTS "Users can view own runs" ON runs;
 CREATE POLICY "Users can view own runs"
   ON runs FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own runs" ON runs;
 CREATE POLICY "Users can insert own runs"
   ON runs FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own runs" ON runs;
 CREATE POLICY "Users can update own runs"
   ON runs FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own repos" ON repo_configs;
 CREATE POLICY "Users can view own repos"
   ON repo_configs FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own repos" ON repo_configs;
 CREATE POLICY "Users can insert own repos"
   ON repo_configs FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own repos" ON repo_configs;
 CREATE POLICY "Users can update own repos"
   ON repo_configs FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own repos" ON repo_configs;
 CREATE POLICY "Users can delete own repos"
   ON repo_configs FOR DELETE
   USING (auth.uid() = user_id);
@@ -90,4 +98,14 @@ CREATE POLICY "Users can delete own repos"
 -- (The backend uses the service_role key, which bypasses RLS by default)
 
 -- Enable Realtime for runs
-ALTER PUBLICATION supabase_realtime ADD TABLE runs;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+        AND schemaname = 'public' 
+        AND tablename = 'runs'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE runs;
+    END IF;
+END $$;

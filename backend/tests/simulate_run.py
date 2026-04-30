@@ -18,9 +18,13 @@ async def simulate_autonomous_run(scenario="success", max_iterations=3):
     
     # Mocking external dependencies
     with patch("agents.test_gen.sandbox_manager") as mock_sandbox, \
-         patch("agents.test_gen.call_gemini") as mock_ai, \
+         patch("agents.test_gen.unified_ai_call") as mock_ai, \
          patch("agents.test_gen.get_supabase") as mock_db, \
+         patch("agents.test_gen.os.walk") as mock_walk, \
          patch("agents.test_gen.os.path.exists") as mock_exists:
+        
+        # Mock walk to return app.py
+        mock_walk.return_value = [("/tmp/test-repo", [], ["app.py"])]
         
         # Mock exists to return True for most paths, but False for clone failure simulation
         mock_exists.side_effect = lambda x: x != "/tmp/failure"
@@ -28,7 +32,7 @@ async def simulate_autonomous_run(scenario="success", max_iterations=3):
         # Mock DB to avoid real network calls
         mock_db.return_value = MagicMock()
 
-        async def mock_call_ai(prompt, system_instruction=None):
+        async def mock_call_ai(provider, prompt, system_instruction=None):
             if scenario == "gemini_429":
                 raise Exception("429 Too Many Requests")
             
@@ -54,31 +58,36 @@ async def simulate_autonomous_run(scenario="success", max_iterations=3):
         # State tracking for the mock
         context = {"pytest_calls": 0, "patch_applied": False}
 
-        def mock_run_command(sandbox_id, command, timeout=300):
+        def mock_run_command_ext(sandbox_id, command, image=None, timeout=300):
             if "pytest" in command:
                  context["pytest_calls"] += 1
                  call_idx = context["pytest_calls"]
                  
                  # Baseline is call 1
                  if call_idx == 1:
-                     return "FAILED tests/test_app.py::test_a\n1 failed, 1 passed in 0.1s"
+                     return "FAILED tests/test_app.py::test_a\n1 failed, 1 passed in 0.1s", 1
                  
                  # Verification calls start from call 2
                  if scenario == "success":
                      if call_idx >= 3: # Success on 2nd iteration (1 baseline + 2 verifying)
-                         return "PASSED: All tests passed!\n2 passed in 0.1s"
+                         return "PASSED: All tests passed!\n2 passed in 0.1s", 0
                      else:
-                         return "FAILED tests/test_app.py::test_a\n1 failed, 1 passed in 0.1s"
+                         return "FAILED tests/test_app.py::test_a\n1 failed, 1 passed in 0.1s", 1
                  
                  elif scenario == "regression":
-                     return "FAILED tests/test_app.py::test_b\n1 failed, 1 passed in 0.1s"
+                     return "FAILED tests/test_app.py::test_b\n1 failed, 1 passed in 0.1s", 1
                  
                  else: # failure / constant failing
-                     return "FAILED tests/test_app.py::test_a\n1 failed, 1 passed in 0.1s"
+                     return "FAILED tests/test_app.py::test_a\n1 failed, 1 passed in 0.1s", 1
 
-            return "Command executed successfully"
+            return "Command executed successfully", 0
+        
+        def mock_run_command(sandbox_id, command, image=None, timeout=300):
+            output, _ = mock_run_command_ext(sandbox_id, command, image, timeout)
+            return output
         
         mock_sandbox.run_command.side_effect = mock_run_command
+        mock_sandbox.run_command_ext.side_effect = mock_run_command_ext
         mock_sandbox.read_file.return_value = "def app(): return True"
         if scenario == "clone_failure":
             mock_sandbox.get_path.return_value = "/tmp/failure"
@@ -163,7 +172,7 @@ async def main():
     print("\n>>> TEST CASE J: GEMINI EMPTY RESPONSE")
     empty_state = await simulate_autonomous_run(scenario="gemini_empty")
     assert empty_state["status"] == "escalated"
-    assert "empty string" in empty_state["diagnosis"]
+    assert "empty patch" in empty_state["diagnosis"]
 
     print("\n>>> TEST CASE K: CLONE FAILURE")
     with patch("os.path.exists", side_effect=lambda x: x != "/tmp/failure"):

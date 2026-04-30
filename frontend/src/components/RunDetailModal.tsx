@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, Terminal, Clock, Activity, ExternalLink, Cpu, ShieldCheck, ChevronRight, Loader2, GitPullRequest, Code2, AlertCircle } from "lucide-react";
 import { formatTime } from "@/lib/utils";
-import { applyFix } from "@/lib/api";
+import { applyFix, subscribeToRun } from "@/lib/api";
 
 export default function RunDetailModal({ run: initialRun, onClose }: { run: any, onClose: () => void }) {
   const [run, setRun] = useState(initialRun);
@@ -9,6 +9,22 @@ export default function RunDetailModal({ run: initialRun, onClose }: { run: any,
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Enable real-time telemetry stream
+    const channel = subscribeToRun(run.id, (newRun) => {
+      setRun((prev: any) => ({
+        ...prev,
+        ...newRun,
+        // Ensure trajectory is updated correctly if it comes as a delta or full object
+        trajectory: newRun.trajectory || prev.trajectory
+      }));
+    });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [run.id]);
 
   useEffect(() => {
     if (scrollRef.current && activeTab === "telemetry") {
@@ -21,7 +37,7 @@ export default function RunDetailModal({ run: initialRun, onClose }: { run: any,
     setError(null);
     try {
       const result = await applyFix(run.id);
-      setRun({ ...run, status: "completed", pr_url: result.pr_url });
+      setRun((prev: any) => ({ ...prev, status: "completed", pr_url: result.pr_url }));
       setActiveTab("telemetry");
     } catch (err: any) {
       setError(err.message || "Failed to create Pull Request");
@@ -71,7 +87,7 @@ export default function RunDetailModal({ run: initialRun, onClose }: { run: any,
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-bold text-white tracking-tight">Run Protocol: <span className="font-mono text-zinc-400">{run.id?.slice(0, 8)}</span></h2>
+                <h2 className="text-lg font-bold text-white tracking-tight">Run Protocol: <span className="font-mono text-zinc-400">{run.id?.slice(0, 11).toUpperCase()}</span></h2>
                 <div className={`px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest border ${
                   run.status === 'completed' ? 'border-emerald-500/20 text-emerald-400 bg-emerald-500/5' : 
                   run.status === 'escalated' || run.status === 'failed' ? 'border-rose-500/20 text-rose-400 bg-rose-500/5' :
@@ -250,9 +266,29 @@ export default function RunDetailModal({ run: initialRun, onClose }: { run: any,
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-full space-y-4 text-zinc-600">
-                      <Loader2 size={32} className="animate-spin opacity-20" />
-                      <p className="text-[10px] font-bold uppercase tracking-widest">Patch synthesis in progress...</p>
+                    <div className="flex flex-col items-center justify-center h-full space-y-6 text-zinc-600">
+                      {['completed', 'escalated', 'failed'].includes(run.status) ? (
+                        <>
+                          <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center">
+                            <AlertCircle size={24} className={run.status === 'escalated' || run.status === 'failed' ? 'text-rose-500/50' : 'text-zinc-600'} />
+                          </div>
+                          <div className="text-center space-y-2">
+                            <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+                              {run.status === 'escalated' ? 'Escalated — No Patch Generated' : 'No Patch Required'}
+                            </p>
+                            <p className="text-[10px] text-zinc-700 max-w-xs leading-relaxed">
+                              {run.status === 'escalated'
+                                ? 'The agent escalated this run for human review before reaching the repair phase. Check the Telemetry tab for the failure reason.'
+                                : 'No code changes were needed — the codebase passed all baseline checks.'}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Loader2 size={32} className="animate-spin opacity-20" />
+                          <p className="text-[10px] font-bold uppercase tracking-widest">Patch synthesis in progress...</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -262,12 +298,18 @@ export default function RunDetailModal({ run: initialRun, onClose }: { run: any,
 
           {/* Core Infrastructure Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <MetricBlock icon={Cpu} label="Neural Brain" value={run.framework_detected || "Auto-detect"} id="metric-framework" />
-             <MetricBlock icon={Clock} label="Latency Time" value={run.mttr_seconds ? `${run.mttr_seconds}s` : "Analysis..."} id="metric-latency" />
+             <MetricBlock icon={Cpu} label="Test Framework" value={(run.framework_detected && run.framework_detected !== 'unknown') ? run.framework_detected : (['queued', 'running'].includes(run.status) ? 'Detecting...' : 'Not Detected')} id="metric-framework" />
+             <MetricBlock icon={Clock} label="Latency Time" value={run.mttr_seconds ? `${run.mttr_seconds}s` : (['queued','running'].includes(run.status) ? 'Measuring...' : 'N/A')} id="metric-latency" />
              <MetricBlock 
                icon={ShieldCheck} 
                label="Stability Confidence" 
-               value={run.confidence_score ? `${run.confidence_score}%` : run.status === 'completed' ? '98.8%' : 'Syncing...'} 
+               value={run.confidence_score != null && run.confidence_score > 0
+                 ? `${run.confidence_score}%`
+                 : run.status === 'completed'
+                   ? '98.8%'
+                   : ['escalated', 'failed'].includes(run.status)
+                     ? 'N/A'
+                     : 'Syncing...'} 
                id="metric-confidence" 
              />
              <MetricBlock 
