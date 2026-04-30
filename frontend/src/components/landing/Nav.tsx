@@ -14,7 +14,7 @@ export const Nav = () => {
     >
       <div className="w-full max-w-7xl px-6 flex items-center justify-between">
         {/* Left: Brand */}
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
           <img 
             src="/logo.png" 
             alt="DevCure Logo" 
@@ -23,7 +23,7 @@ export const Nav = () => {
           <span className="text-[15px] font-bold tracking-tight text-white font-display">
             DevCure
           </span>
-        </div>
+        </Link>
 
         {/* Center: Logic */}
         <div className="hidden md:flex items-center gap-1">

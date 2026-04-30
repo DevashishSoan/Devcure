@@ -35,10 +35,10 @@ export default function Sidebar() {
     <aside className="w-64 h-full bg-[#020617] border-r border-white/5 flex flex-col z-50 relative">
       {/* Brand Header */}
       <div className="p-8 mb-4">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
           <img src="/logo.png" alt="DevCure" className="w-8 h-8 object-contain" />
           <span className="text-lg font-bold tracking-tighter text-white font-display">DevCure</span>
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
@@ -100,6 +100,18 @@ export default function Sidebar() {
               />
            </div>
         </div>
+
+        <a 
+          href="https://forms.gle/coyWQevBinYc9qav7"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-between px-4 py-3 mb-2 rounded-2xl text-zinc-500 hover:text-white hover:bg-white/5 transition-all text-[11px] font-bold uppercase tracking-widest font-display border border-transparent hover:border-white/10 group"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0891B2] shadow-[0_0_8px_#0891B2] group-hover:scale-150 transition-transform" />
+            Submit Feedback
+          </div>
+        </a>
 
         <button 
           onClick={() => signOut()}
