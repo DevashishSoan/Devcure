@@ -14,13 +14,13 @@ export const Nav = () => {
     >
       <div className="w-full max-w-7xl px-6 flex items-center justify-between">
         {/* Left: Brand */}
-        <Link href="/" className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+        <Link href="/" className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
           <img 
             src="/logo.png" 
             alt="DevCure Logo" 
-            className="w-8 h-8 object-contain brightness-125"
+            className="w-9 h-9 object-contain brightness-125 rounded-lg"
           />
-          <span className="text-[15px] font-bold tracking-tight text-white font-display">
+          <span className="text-[17px] font-bold tracking-tight text-white font-display mt-0.5">
             DevCure
           </span>
         </Link>

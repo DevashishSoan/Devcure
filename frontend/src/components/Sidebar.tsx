@@ -35,9 +35,9 @@ export default function Sidebar() {
     <aside className="w-64 h-full bg-[#020617] border-r border-white/5 flex flex-col z-50 relative">
       {/* Brand Header */}
       <div className="p-8 mb-4">
-        <Link href="/" className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
-          <img src="/logo.png" alt="DevCure" className="w-8 h-8 object-contain" />
-          <span className="text-lg font-bold tracking-tighter text-white font-display">DevCure</span>
+        <Link href="/" className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity">
+          <img src="/logo.png" alt="DevCure" className="w-10 h-10 object-contain rounded-xl shadow-[0_0_15px_rgba(8,145,178,0.2)]" />
+          <span className="text-[20px] font-bold tracking-tighter text-white font-display mt-0.5">DevCure</span>
         </Link>
       </div>
 

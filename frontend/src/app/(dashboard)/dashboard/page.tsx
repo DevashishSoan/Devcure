@@ -251,6 +251,35 @@ export default function Dashboard() {
                     </div>
                  </MagneticCard>
 
+                 {/* Roadmap Widget */}
+                 <MagneticCard delay={0.7} className="bg-zinc-950/40 border-[#0891B2]/10 overflow-hidden relative">
+                    <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#0891B2]/5 rounded-full blur-[40px] pointer-events-none" />
+                    <div className="flex items-center gap-3 mb-8">
+                       <div className="w-8 h-8 rounded-xl bg-[#0891B2]/10 border border-[#0891B2]/20 flex items-center justify-center">
+                          <Activity size={14} className="text-[#0891B2]" />
+                       </div>
+                       <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Phase_10_Roadmap</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                       {[
+                         { title: "Slack Notifications", desc: "Real-time alerts for agent activity", status: "Priority 1" },
+                         { title: "Email Alerts", desc: "Critical escalation routing", status: "Priority 2" },
+                         { title: "Jest/Vitest Parsing", desc: "Enhanced Node.js framework support", status: "Priority 3" },
+                         { title: "Stripe Billing", desc: "Team tier subscriptions", status: "Priority 4" },
+                         { title: "GitHub App Tokens", desc: "Multi-user secure scaling", status: "Priority 5" },
+                       ].map((item, i) => (
+                         <div key={i} className="flex flex-col gap-1 p-3 rounded-xl bg-white/[0.02] border border-white/[0.02] hover:bg-[#0891B2]/5 transition-colors group">
+                            <div className="flex justify-between items-center">
+                               <span className="text-[12px] font-bold text-zinc-300 group-hover:text-white transition-colors">{item.title}</span>
+                               <span className="text-[9px] font-mono text-zinc-600 uppercase bg-zinc-900 px-1.5 py-0.5 rounded border border-white/5">{item.status}</span>
+                            </div>
+                            <span className="text-[10px] text-zinc-500">{item.desc}</span>
+                         </div>
+                       ))}
+                    </div>
+                 </MagneticCard>
+
               </div>
             </div>
 
